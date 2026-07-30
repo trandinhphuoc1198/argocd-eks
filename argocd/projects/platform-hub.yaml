@@ -4,17 +4,12 @@ metadata:
   name: platform-hub
   namespace: argocd
 spec:
-    # See platform-hub-observability for the fleet-wide
-    # observability backend that also runs on hub as of the hub/spoke
-    # observability re-split — deliberately kept in a separate project so
-    # that heavier, more frequently-changing, more public-facing workload
-    # can never touch ArgoCD's own control-plane resources here.
   description: >
     The hub cluster's own management plane: ArgoCD's Helm release, External
     Secrets Operator, the ClusterSecretStore, the per-spoke ExternalSecrets
     that register spoke clusters, the node-level infra (Cilium, AWS CCM,
-    cluster-autoscaler)
-    
+    Karpenter)
+
   sourceRepos:
     - "https://argoproj.github.io/argo-helm"
     - "https://charts.external-secrets.io"
@@ -22,8 +17,8 @@ spec:
     - "https://github.com/kubernetes-sigs/gateway-api.git"
     - "https://helm.cilium.io/"
     - "https://kubernetes.github.io/cloud-provider-aws"
-    - "https://kubernetes.github.io/autoscaler"
     - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+    - "oci://public.ecr.aws/karpenter/karpenter"
 
   destinations:
     - server: https://kubernetes.default.svc

@@ -14,7 +14,6 @@ spec:
     - "https://helm.cilium.io/"
     - "https://charts.jetstack.io"
     - "https://charts.external-secrets.io"
-    - "https://kubernetes.github.io/autoscaler"
     - "https://prometheus-community.github.io/helm-charts"
     - "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
     - "https://open-telemetry.github.io/opentelemetry-helm-charts"
@@ -23,10 +22,11 @@ spec:
     - "https://kedacore.github.io/charts"
     - "https://cloudnative-pg.github.io/charts"
     - "https://kubernetes-sigs.github.io/metrics-server/"
+    - "oci://public.ecr.aws/karpenter/karpenter"
 
-  # Wildcarded server - these Applications land on whichever spoke the
-  # ApplicationSet cluster generator produced them for. Namespace scoping
-  # below is what actually bounds blast radius now.
+  # (destinations / clusterResourceWhitelist / namespaceResourceWhitelist unchanged —
+  # kube-system already whitelisted, both wildcards already cover Karpenter's
+  # cluster-scoped NodePool/EC2NodeClass CRs)
   destinations:
     - server: "*"
       namespace: kube-system
@@ -47,9 +47,6 @@ spec:
     - server: "*"
       namespace: external-secrets
 
-  # These charts legitimately install CRDs, StorageClasses, ClusterRoles,
-  # ClusterRoleBindings, the CSIDriver object, etc. - kept wide open here,
-  # the namespace scoping above is the real boundary for this project.
   clusterResourceWhitelist:
     - group: "*"
       kind: "*"
