@@ -1,0 +1,272 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-otel-collector
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  otel-collector.json: |-
+    {
+      "title": "OTel Collector Pipeline",
+      "uid": "otel-collector",
+      "schemaVersion": 38,
+      "version": 2,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "tags": ["opentelemetry", "otel", "collector", "sampling"],
+      "templating": {
+        "list": [
+          {
+            "name": "collector",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "query": "label_values(otelcol_process_uptime{namespace=\"observability\"}, job)",
+            "refresh": 2,
+            "includeAll": true,
+            "allValue": ".*",
+            "label": "Collector"
+          }
+        ]
+      },
+      "panels": [
+
+        {
+          "id": 1,
+          "title": "Spans Received/s — DaemonSet (node collectors)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } } },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(otelcol_receiver_accepted_spans{namespace=\"observability\", receiver=\"otlp\", job=~\".*otel-collector-ds.*\"}[1m]))",
+              "legendFormat": "{{pod}} accepted"
+            },
+            {
+              "expr": "sum by(pod)(rate(otelcol_receiver_refused_spans{namespace=\"observability\", receiver=\"otlp\", job=~\".*otel-collector-ds.*\"}[1m]))",
+              "legendFormat": "{{pod}} refused"
+            }
+          ]
+        },
+
+        {
+          "id": 2,
+          "title": "Spans Exported/s — Aggregator → Tempo",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } } },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(otelcol_exporter_sent_spans{namespace=\"observability\", exporter=\"otlp/tempo\", job=~\".*otel-collector-agg.*\"}[1m]))",
+              "legendFormat": "{{pod}} sent"
+            },
+            {
+              "expr": "sum by(pod)(rate(otelcol_exporter_send_failed_spans{namespace=\"observability\", exporter=\"otlp/tempo\", job=~\".*otel-collector-agg.*\"}[1m]))",
+              "legendFormat": "{{pod}} failed"
+            }
+          ]
+        },
+
+        {
+          "id": 3,
+          "title": "Tail Sampling — Trace Decisions (sampled vs dropped)/s",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "dropped traces/s" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(otelcol_processor_tail_sampling_sampling_decision_timer_latency_count{namespace=\"observability\"}[1m]))",
+              "legendFormat": "decision cycles/s"
+            },
+            {
+              "expr": "sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled{namespace=\"observability\", sampled=\"true\"}[1m]))",
+              "legendFormat": "sampled traces/s"
+            },
+            {
+              "expr": "sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled{namespace=\"observability\", sampled=\"false\"}[1m]))",
+              "legendFormat": "dropped traces/s"
+            }
+          ]
+        },
+
+        {
+          "id": 4,
+          "title": "Tail Sampling — kept by policy",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } } },
+          "targets": [
+            {
+              "expr": "sum by(policy)(rate(otelcol_processor_tail_sampling_count_traces_sampled{namespace=\"observability\", sampled=\"true\"}[1m]))",
+              "legendFormat": "{{policy}}"
+            }
+          ]
+        },
+
+        {
+          "id": 5,
+          "title": "Logs Received/s — DaemonSet filelog (fastapi ns)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } } },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(otelcol_receiver_accepted_log_records{namespace=\"observability\", receiver=\"filelog\", job=~\".*otel-collector-ds.*\"}[1m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 6,
+          "title": "Logs Exported/s — Aggregator → Loki",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "failed" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(otelcol_exporter_sent_log_records{namespace=\"observability\", exporter=\"otlphttp\", job=~\".*otel-collector-agg.*\"}[1m]))",
+              "legendFormat": "{{pod}} sent"
+            },
+            {
+              "expr": "sum by(pod)(rate(otelcol_exporter_send_failed_log_records{namespace=\"observability\", exporter=\"otlphttp\", job=~\".*otel-collector-agg.*\"}[1m]))",
+              "legendFormat": "{{pod}} failed"
+            }
+          ]
+        },
+
+        {
+          "id": 7,
+          "title": "Collector Memory Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 23, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "bytes", "custom": { "lineWidth": 2, "fillOpacity": 6 } }
+          },
+          "targets": [
+            {
+              "expr": "otelcol_process_memory_rss{namespace=\"observability\"}",
+              "legendFormat": "{{pod}} RSS"
+            }
+          ]
+        },
+
+        {
+          "id": 8,
+          "title": "Collector Queue Size — exporter send queue",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 23, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": { "steps": [{ "color": "green" }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 900 }] },
+              "custom": { "lineWidth": 2, "fillOpacity": 8 }
+            }
+          },
+          "targets": [
+            {
+              "expr": "otelcol_exporter_queue_size{namespace=\"observability\"}",
+              "legendFormat": "{{pod}} {{exporter}} ({{data_type}}) size"
+            },
+            {
+              "expr": "otelcol_exporter_queue_capacity{namespace=\"observability\"}",
+              "legendFormat": "{{pod}} {{exporter}} ({{data_type}}) capacity"
+            }
+          ]
+        },
+
+        {
+          "id": 9,
+          "title": "Tail Sampling: Traces Held in Memory",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 30, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": { "steps": [{ "color": "green" }, { "color": "yellow", "value": 8000 }, { "color": "red", "value": 9500 }] },
+              "custom": { "lineWidth": 2, "fillOpacity": 8 }
+            }
+          },
+          "targets": [
+            {
+              "expr": "otelcol_processor_tail_sampling_sampling_traces_on_memory{namespace=\"observability\"}",
+              "legendFormat": "{{pod}} traces-in-memory"
+            },
+            {
+              "expr": "sum by(pod)(rate(otelcol_processor_tail_sampling_sampling_trace_dropped_too_early{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}} dropped-too-early/s"
+            }
+          ]
+        },
+
+        {
+          "id": 10,
+          "title": "Collector CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 30, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "cores", "custom": { "lineWidth": 1, "fillOpacity": 6 } } },
+          "targets": [
+            {
+              "expr": "rate(otelcol_process_cpu_seconds{namespace=\"observability\"}[2m])",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 11, "title": "Stat: Spans/s received", "type": "stat",
+          "gridPos": { "x": 0, "y": 37, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }] } } },
+          "targets": [{ "expr": "sum(rate(otelcol_receiver_accepted_spans{namespace=\"observability\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 12, "title": "Stat: Spans/s to Tempo", "type": "stat",
+          "gridPos": { "x": 6, "y": 37, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }] } } },
+          "targets": [{ "expr": "sum(rate(otelcol_exporter_sent_spans{namespace=\"observability\", exporter=\"otlp/tempo\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 13, "title": "Stat: Logs/s to Loki", "type": "stat",
+          "gridPos": { "x": 12, "y": 37, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }] } } },
+          "targets": [{ "expr": "sum(rate(otelcol_exporter_sent_log_records{namespace=\"observability\", exporter=\"otlphttp\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 14, "title": "Stat: Export Failures/s", "type": "stat",
+          "gridPos": { "x": 18, "y": 37, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "color": "red", "value": 0.1 }] } } },
+          "targets": [{ "expr": "sum(rate(otelcol_exporter_send_failed_spans{namespace=\"observability\"}[1m])) + sum(rate(otelcol_exporter_send_failed_log_records{namespace=\"observability\"}[1m]))", "legendFormat": "" }]
+        }
+
+      ]
+    }

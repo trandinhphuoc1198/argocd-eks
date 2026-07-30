@@ -1,0 +1,54 @@
+# Wave 41 — NEW as of the hub/spoke observability re-split. Runs ONLY the
+# aggregator half of platform/charts/otel (collectorDaemonSet.enabled:
+# false, collectorDeployment.enabled: true — see
+# platform/values/hub/otel.yaml). Needs the OTel Operator CRDs
+# (20-opentelemetry-operator.yaml, wave "20") AND its own export targets,
+# Tempo + Loki (40-tempo.yaml, 40-loki.yaml, wave "40") — deliberately one
+# wave AFTER those rather than racing them in parallel at the same wave
+# (the collector would just retry/back off either way, but there's no
+# reason to leave that to chance when the ordering is easy to express).
+#
+# Uses the same two-source "$values ref" pattern as every other tiered
+# Application in this repo (cilium, ebs-csi, kube-prometheus-stack, ...)
+# instead of an ad-hoc relative valueFiles path — both sources happen to
+# point at the same repo here (it's a local chart), but keeping the
+# pattern consistent means anyone reading argocd/hub/*.yaml doesn't have
+# to learn a second convention for this one chart.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collectors
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "50"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  sources:
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      path: platform/charts/otel
+      helm:
+        releaseName: otel
+        valueFiles:
+          - $values/platform/values/hub/otel.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

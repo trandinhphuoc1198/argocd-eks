@@ -1,0 +1,83 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "fastapi-app.fullname" . }}
+  labels:
+    {{- include "fastapi-app.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "fastapi-app.fullname" . }}
+
+  pollingInterval:  {{ .Values.keda.pollingInterval }}
+  cooldownPeriod:   {{ .Values.keda.cooldownPeriod }}
+  minReplicaCount:  {{ .Values.keda.minReplicas }}
+  maxReplicaCount:  {{ .Values.keda.maxReplicas }}
+
+  # Stabilisation windows — prevent flapping on noisy metrics
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: {{ .Values.keda.scaleUp.stabilizationWindowSeconds }}
+          policies:
+            - type: Pods
+              value: {{ .Values.keda.scaleUp.maxPodsPerStep }}
+              periodSeconds: {{ .Values.keda.scaleUp.periodSeconds }}
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.keda.scaleDown.stabilizationWindowSeconds }}
+          policies:
+            - type: Pods
+              value: {{ .Values.keda.scaleDown.maxPodsPerStep }}
+              periodSeconds: {{ .Values.keda.scaleDown.periodSeconds }}
+
+  triggers:
+    # ── Trigger 1: HTTP request rate ──────────────────────────────────────────
+    # Scale out when the per-pod RPS averaged over 1 m exceeds the threshold.
+    # prometheus-fastapi-instrumentator emits http_requests_total with labels:
+    #   handler, method, status_code
+    #
+    # clamp_min(..., 1) on the denominator: if ready replicas ever drops to 0
+    # (bad rollout, outage) a bare division would return +Inf, not an empty
+    # result — ignoreNullValues doesn't catch +Inf, and KEDA/HPA would either
+    # choke on the value or slam straight to maxReplicaCount. Clamping the
+    # denominator to a floor of 1 makes the query degrade to "raw request
+    # rate vs threshold" instead, which is a sane fallback.
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.keda.prometheus.serverAddress }}
+        metricName: fastapi_http_request_rate
+        query: |
+          sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}"}[1m]))
+          /
+          clamp_min(
+            max(kube_deployment_status_replicas_ready{
+              namespace="{{ .Release.Namespace }}",
+              deployment="{{ include "fastapi-app.fullname" . }}"
+            }),
+            1
+          )
+        threshold: {{ .Values.keda.triggers.requestRate.threshold | quote }}
+        ignoreNullValues: "true"
+
+    # ── Trigger 2: P95 request duration ──────────────────────────────────────
+    # Scale out when the 95th-percentile latency across all pods breaches the
+    # threshold (seconds). Uses http_request_duration_seconds_bucket.
+    # No division here, so no clamp needed.
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.keda.prometheus.serverAddress }}
+        metricName: fastapi_p95_latency
+        query: |
+          histogram_quantile(0.95,
+            sum by (le) (
+              rate(http_request_duration_seconds_bucket{
+                namespace="{{ .Release.Namespace }}"
+              }[2m])
+            )
+          )
+        threshold: {{ .Values.keda.triggers.p95Latency.threshold | quote }}
+        ignoreNullValues: "true"
+{{- end }}

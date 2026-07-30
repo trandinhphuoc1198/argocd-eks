@@ -1,0 +1,36 @@
+# CloudNativePG Operator Helm Values
+# Installed into: cnpg-system namespace
+# Ref: https://cloudnative-pg.io/documentation/
+
+crds:
+  create: true
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Emit metrics for kube-prometheus-stack
+monitoring:
+  podMonitorEnabled: true
+  grafanaDashboard:
+    create: true
+    namespace: monitoring   # namespace where Grafana lives
+
+# Allow the operator to watch all namespaces (including db)
+watchNamespaces: []
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux

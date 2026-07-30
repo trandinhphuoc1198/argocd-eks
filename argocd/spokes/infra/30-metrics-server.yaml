@@ -1,0 +1,45 @@
+# Wave 30 — needs the 'ebs-csi' StorageClass (20-aws-ebs-csi-driver.yaml,
+# wave "20") for the tier this repo's dependency convention groups it
+# with; the chart itself has no PVCs but shares this wave with the rest of
+# the "operators and controllers" layer.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: metrics-server
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'metrics-server-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "30"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://kubernetes-sigs.github.io/metrics-server/
+          chart: metrics-server
+          targetRevision: "3.13.1"
+          helm:
+            releaseName: metrics-server
+            valueFiles:
+              - $values/platform/values/spoke/metrics-server.yaml
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

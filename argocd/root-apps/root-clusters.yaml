@@ -1,0 +1,39 @@
+# root-apps/root-clusters.yaml
+#
+# App-of-apps for spoke registration. Each file under argocd/clusters/ is an
+# ExternalSecret (one per spoke) that ESO resolves against AWS Secrets
+# Manager and materializes into an argocd-namespace cluster Secret labeled
+# role=spoke — the label every spokes/ ApplicationSet selects on.
+#
+# Kept separate from root-hub.yaml deliberately: this directory changes
+# every time a spoke is onboarded/decommissioned, which is a much higher
+# frequency and a much narrower blast radius than changes to ArgoCD's own
+# management stack in argocd/hub/. Splitting them keeps that history clean.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-clusters
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: argocd/clusters
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

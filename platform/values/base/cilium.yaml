@@ -1,0 +1,232 @@
+# Shared across every deployment tier. Consumed by BOTH:
+#   - argocd/hub/00-cilium.yaml            (hub)
+#   - argocd/spokes/infra/00-cilium.yaml   (every spoke)
+#
+# Everything here is intentionally identical regardless of which cluster
+# Cilium runs on: routing mode, kube-proxy replacement, masquerade,
+# encryption, Hubble feature toggles, Gateway API, resource sizing,
+# tolerations, and now Cluster Mesh's apiserver/TLS config (cluster.name /
+# cluster.id are the only per-cluster mesh fields — those live in the tier
+# overlay, see platform/values/hub/cilium.yaml and
+# argocd/spokes/infra/10-cilium.yaml's valuesObject).
+#
+# Only truly per-cluster values live in the tier overlay:
+#   - k8sServiceHost / k8sServicePort  (that cluster's own API server)
+#   - hubble.ui.ingress.hosts          (avoids a DNS collision between tiers)
+#   - cluster.name / cluster.id        (Cluster Mesh identity)
+#
+# Each tier layers platform/values/<tier>/cilium.yaml on top of this file
+# via a second helm.valueFiles entry, tier file last so it wins.
+
+# ── Routing ────────────────────────────────────────────────────────────────
+# Native routing (no VXLAN encapsulation) instead of the previous
+# routingMode: tunnel. Nodes are not L2-adjacent (each cluster spans 2
+# private subnets/AZs), so pod-to-pod traffic across AZs relies entirely on
+# AWS VPC route tables, not direct netlink routes between nodes — hence
+# autoDirectNodeRoutes: false below. Those VPC routes are synced by AWS
+# Cloud Controller Manager's route controller (platform/values/base/aws-ccm.yaml,
+# --configure-cloud-routes=true), not by Cilium itself. CCM watches
+# node.spec.podCIDR (assigned by kube-controller-manager under
+# ipam.mode: kubernetes) and creates/removes the matching VPC route
+# automatically, including on node replacement — see modules/ec2's
+# master_ccm_policy for the IAM this needs and modules/vpc for the
+# kubernetes.io/cluster/<name> tag CCM discovers the route table by.
+#
+# Cluster Mesh note: cross-cluster pod routing now also depends on the AWS
+# side being "flat" between clusters (VPC peering/TGW + route tables
+# advertising each cluster's pod CIDR to the others) — that's provisioned
+# outside this repo (Terraform), not by CCM, which only manages routes
+# within its own cluster's VPC.
+routingMode: native
+
+ipv4NativeRoutingCIDR: "100.64.0.0/10"
+
+ipam:
+  mode: kubernetes
+
+# false: nodes are spread across multiple AZs/subnets, so direct
+# node-to-node netlink routes (which only work for L2-adjacent nodes)
+# don't apply here. Leaving this true would have Cilium's own node-route
+# reconciler fight the cloud-managed routes from AWS CCM.
+autoDirectNodeRoutes: false
+
+kubeProxyReplacement: "true"
+
+nodePort:
+  enabled: true
+  range: "30000,32767"
+
+bpf:
+  masquerade: true
+
+enableIPv4Masquerade: true
+enableIPv6Masquerade: false
+
+# ── Gateway API ────────────────────────────────────────────────────────────
+# Requires the Gateway API CRDs to already exist when the Cilium agent
+# starts — installed one sync-wave earlier by
+# argocd/{hub,spokes/infra}/00-gateway-api-crds.yaml (wave "-1" vs Cilium's
+# "00"). If Cilium ever syncs before the CRDs land (e.g. a future
+# hard-reset bootstrap), the gateway-api controller just logs and retries
+# until the CRDs appear — it does not crash the agent.
+#
+# Cilium auto-creates a GatewayClass named "cilium" when this is enabled;
+# no manual GatewayClass manifest is needed anywhere in this repo.
+l7Proxy: true
+gatewayAPI:
+  enabled: true
+  enableAlpn: true
+  enableProxyProtocol: false
+  gatewayClass:
+    create: "false"
+    
+# ── Cluster Mesh ───────────────────────────────────────────────────────────
+# useAPIServer: true deploys clustermesh-apiserver (own embedded etcd) in
+# every meshed cluster — no external kvstore needed, works with the
+# identityAllocationMode: crd already set below.
+#
+# NodePort exposure: chosen because AWS-side flat routing between cluster
+# VPCs (peering/TGW) already makes node IPs reachable cluster-to-cluster,
+# so no per-cluster LoadBalancer/NLB is needed for this. Fixed port so
+# every cluster's remote-endpoint config is predictable without querying
+# each cluster's live Service. Points at each cluster's control-plane node
+# IP (same address already used as k8sServiceHost) rather than a worker
+# node, since workers churn under cluster-autoscaler and control-plane
+# nodes don't.
+#
+# TLS: cert-manager issues all four clustermesh certs (admin/client/
+# server/relay) from clustermesh-ca-issuer (platform/clustermesh/,
+# wave "25" — a shared root distributed to every cluster, NOT
+# internal-ca-issuer, which is a per-cluster self-signed root and cannot
+# be a shared trust anchor).
+#
+# config.clusters: THIS is what replaces `cilium clustermesh connect`
+# entirely — no CLI needed anywhere in this setup. Every meshed cluster
+# gets the exact same peer list (hub + every spoke, including itself —
+# Cilium ignores the self-entry), so this can live in the shared base
+# file rather than a per-tier overlay. Since every cluster already trusts
+# the same cert-manager-issued CA, per-remote TLS material is NOT needed
+# here (only required when clusters have independent, unshared CAs) —
+# Cilium automatically uses each cluster's own local cert to authenticate
+# outbound to every peer.
+#
+# AUTO-GENERATED — do not hand-edit this block. It's regenerated by
+# .github/workflows/clustermesh-sync.yml from every argocd/clusters/*.yaml
+# file's cluster-mesh-id / cluster-mesh-ip labels, plus the hub entry
+# hardcoded in that workflow (hub has no argocd/clusters/ file of its
+# own). Onboarding a new spoke = add those two labels to its
+# argocd/clusters/<name>.yaml (same file/PR spoke registration already
+# requires) — this list updates itself on merge, no second edit anywhere.
+#
+# Field names below (`clustermesh.config.enabled`, `.clusters[].ips`,
+# `.name`, `.port`) are confirmed against multiple real-world Helm-only
+# clustermesh setups for this chart line — still worth a
+# `helm show values cilium/cilium --version 1.20.0-rc.1` diff before
+# first sync, since this repo pins a release candidate.
+clustermesh:
+  useAPIServer: true
+  config:
+    enabled: true
+    clusters:
+      - name: hub
+        ips:
+          - "10.0.11.10"
+        port: 32379
+      - name: spoke-dev-k8s
+        ips:
+          - "10.1.11.10"
+        port: 32379
+  apiserver:
+    service:
+      type: NodePort
+      nodePort: 32379
+    tls:
+      auto:
+        enabled: true
+        authMode: cluster
+        method: certmanager
+        certManagerIssuerRef:
+          group: cert-manager.io
+          kind: ClusterIssuer
+          name: clustermesh-ca-issuer
+
+hubble:
+  enabled: true
+  metrics:
+    enabled:
+      - dns:query;ignoreAAAA
+      - drop
+      - tcp
+      - flow
+      - icmp
+      - http
+    serviceMonitor:
+      enabled: false
+      trustCRDsExist: true
+    
+  relay:
+    enabled: true
+    rollOutPods: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  ui:
+    enabled: true
+    rollOutPods: true
+    ingress:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+    trustCRDsExist: true
+
+operator:
+  replicas: 1
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Must run on control-plane node too — Cilium bootstraps the CNI before
+# the control-plane taint is applied, on both hub and spoke.
+tolerations:
+  - operator: Exists
+
+rollOutCiliumPods: true
+
+identityAllocationMode: crd
+
+encryption:
+  enabled: true
+  type: wireguard
+
+MTU: 8500

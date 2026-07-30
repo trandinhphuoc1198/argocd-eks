@@ -1,0 +1,37 @@
+# root-apps/root-hub.yaml
+#
+# App-of-apps for everything that runs ONLY on the hub cluster (where ArgoCD
+# itself lives): ArgoCD's own Helm release, External Secrets Operator, the
+# ClusterSecretStore, per-spoke ExternalSecrets that register spoke
+# clusters with ArgoCD, and the Gateway API resources fronting the hub's
+# own services.
+#
+# Apply once, by hand, alongside root-spokes.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-hub
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: argocd/hub
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

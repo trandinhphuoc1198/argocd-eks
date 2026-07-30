@@ -1,0 +1,104 @@
+# platform/gateway-api/hub-gateway.yaml
+#
+# Hub counterpart of spoke-gateway.yaml — fronts ArgoCD's own UI, the hub's
+# Hubble UI, and (as of the hub/spoke observability re-split) Grafana,
+# Prometheus, and Alertmanager, all of which now run only on hub. Deployed
+# by argocd/hub/30-gateway.yaml.
+#
+# grafana/prometheus/alertmanager-https listeners MOVED here from
+# spoke-gateway.yaml — same hostnames as before, since there is still
+# exactly one of each in the fleet, just relocated.
+#
+# See spoke-gateway.yaml for the full Path-B rationale (AWS CCM provisions
+# a real NLB per Gateway; retire the old manual ALB) — same applies here.
+# After first sync:
+#   kubectl get svc -n gateway-system cilium-gateway-hub-gateway \
+#     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+# and point every hostname's Route53 record at that NLB DNS name.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: hub-gateway
+  namespace: gateway-system
+  annotations:
+    cert-manager.io/cluster-issuer: internal-ca-issuer
+spec:
+  gatewayClassName: cilium
+  infrastructure:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: argocd-https
+      hostname: argocd.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: argocd-server-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: hubble-https
+      hostname: hubble-hub.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: hubble-hub-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    # ── Moved from spoke-gateway.yaml ──────────────────────────────────────
+    - name: grafana-https
+      hostname: grafana.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: grafana-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: prometheus-https
+      hostname: prometheus.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: prometheus-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: alertmanager-https
+      hostname: alertmanager.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: alertmanager-tls
+      allowedRoutes:
+        namespaces:
+          from: All

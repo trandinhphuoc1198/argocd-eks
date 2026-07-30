@@ -1,0 +1,49 @@
+# Wave 60 — last wave. Custom local chart (services/fastapi-app). Depends
+# on, per spoke:
+#   - the Gateway (wave "30") + its HTTPRoute's own listener, for the
+#     HTTPRoute this chart creates
+#     (services/fastapi-app/templates/httproute.yaml)
+#   - keda (wave "30") for the ScaledObject CRD
+#   - otel-collectors (wave "40") for the Instrumentation CR it annotates onto
+#   - postgresql (wave "50") for the pg-pooler-rw/ro Services it connects to
+#   - prometheus-operator-crds (installed alongside kube-prometheus-stack,
+#     wave "30") for the ServiceMonitor it creates
+#
+# NOTE: services/fastapi-app/values.yaml ships a placeholder DB password
+# ("changeme") committed in git, same caveat as the postgresql chart.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: fastapi-app
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'fastapi-app-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "60"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-apps
+      source:
+        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        targetRevision: main
+        path: services/fastapi-app
+        helm:
+          releaseName: fastapi-app
+      destination:
+        server: '{{server}}'
+        namespace: fastapi
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

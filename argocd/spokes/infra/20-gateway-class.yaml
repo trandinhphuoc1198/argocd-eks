@@ -1,0 +1,40 @@
+# Wave 20 — spoke counterpart of argocd/hub/20-gateway-class.yaml. Fanned
+# out to every registered spoke. Needs Cilium's operator up on that spoke
+# first (10-cilium.yaml, wave "10") so it can reconcile the GatewayClass,
+# and must land before 30-gateway.yaml creates the Gateway object that
+# references gatewayClassName: cilium.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gateway-class
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'gateway-class-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "20"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      source:
+        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        targetRevision: main
+        path: platform/gateway-api
+        directory:
+          include: "gateway-class.yaml"
+      destination:
+        server: '{{server}}'
+        namespace: gateway-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

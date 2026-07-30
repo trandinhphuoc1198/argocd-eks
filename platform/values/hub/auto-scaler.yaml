@@ -1,0 +1,16 @@
+# platform/values/hub/auto-scaler.yaml
+#
+# Hub-tier overlay, layered on top of platform/values/base/auto-scaler.yaml
+# by argocd/hub/01-cluster-autoscaler.yaml.
+#
+# TODO: hub's own ASG tag ("k8s.io/cluster-autoscaler/<name>") — must NOT
+# be the spoke's "dev-k8s" or the hub's autoscaler will match nothing, or
+# worse, match the spoke's ASG if tags overlap.
+#
+# Confirm the hub actually sits behind an ASG in Terraform before wiring
+# this in — if it's a fixed single control-plane node, this chart has
+# nothing to discover.
+autoDiscovery:
+  clusterName: hub-dev-k8s
+
+awsRegion: ap-northeast-1

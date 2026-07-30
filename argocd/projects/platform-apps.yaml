@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-apps
+  namespace: argocd
+spec:
+  description: >
+    The application layer for SPOKE clusters
+
+  # Both charts here are local to this repo — no external Helm chart repos
+  # needed, unlike platform-infra.
+  sourceRepos:
+    - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+
+  destinations:
+    - server: "*"
+      namespace: fastapi
+    - server: "*"
+      namespace: db
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

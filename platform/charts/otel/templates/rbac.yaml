@@ -1,0 +1,66 @@
+# charts/otel/templates/rbac.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# RBAC for the OTel Collector
+#
+# The collector needs read access to pods/namespaces/nodes so that the
+# k8sattributes processor can enrich spans with Kubernetes metadata.
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "otel.labels" . | nindent 4 }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+  labels:
+    {{- include "otel.labels" . | nindent 4 }}
+rules:
+  # k8sattributes processor
+  - apiGroups: [""]
+    resources:
+      - pods
+      - namespaces
+      - nodes
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["apps"]
+    resources:
+      - replicasets
+      - deployments
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "watch", "list"]
+  # Allow the collector to discover its own endpoints (for load-balanced mode)
+  - apiGroups: [""]
+    resources:
+      - endpoints
+    verbs: ["get", "watch", "list"]
+  # Node-level metrics (hostmetrics receiver, optional)
+  # Avoid nodes/proxy because it grants access to the kubelet proxy and can enable privilege escalation.
+  - apiGroups: [""]
+    resources:
+      - nodes/metrics
+      - nodes/stats
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+  labels:
+    {{- include "otel.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-collector
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: {{ .Values.global.namespace }}

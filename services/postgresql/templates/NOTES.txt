@@ -1,0 +1,43 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ CloudNativePG Cluster deployed successfully!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Cluster:   {{ .Values.cluster.name }}
+Namespace: {{ .Release.Namespace }}
+Instances: {{ .Values.cluster.instances }} (1 primary + 1 replica)
+
+── Write path (PgBouncer RW → Primary) ───────────
+  Host:  {{ .Values.pooler.rw.name }}.{{ .Release.Namespace }}.svc.cluster.local
+  Port:  5432
+  WRITE_DB_URL=postgresql+asyncpg://appuser:<pw>@{{ .Values.pooler.rw.name }}.{{ .Release.Namespace }}.svc.cluster.local:5432/{{ .Values.cluster.database }}
+
+── Read path (PgBouncer RO → Replica) ────────────
+  Host:  {{ .Values.pooler.ro.name }}.{{ .Release.Namespace }}.svc.cluster.local
+  Port:  5432
+  READ_DB_URL=postgresql+asyncpg://appuser:<pw>@{{ .Values.pooler.ro.name }}.{{ .Release.Namespace }}.svc.cluster.local:5432/{{ .Values.cluster.database }}
+
+── Check cluster status ───────────────────────────
+  kubectl get cluster -n {{ .Release.Namespace }}
+  kubectl get poolers -n {{ .Release.Namespace }}
+  kubectl get pods   -n {{ .Release.Namespace }}
+
+── Retrieve app user password ─────────────────────
+  kubectl get secret {{ .Values.secret.name }} \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath='{.data.password}' | base64 -d
+
+── Connect via psql (debug) ───────────────────────
+  kubectl exec -it {{ .Values.cluster.name }}-1 \
+    -n {{ .Release.Namespace }} \
+    -- psql -U {{ .Values.cluster.owner }} {{ .Values.cluster.database }}
+
+── Monitoring ─────────────────────────────────────
+  3 ServiceMonitors created:
+    • {{ .Values.cluster.name }}-metrics     (Cluster)
+    • {{ .Values.pooler.rw.name }}-metrics   (RW Pooler)
+    • {{ .Values.pooler.ro.name }}-metrics   (RO Pooler)
+
+  Import CNPG Grafana dashboards (IDs: 20417, 20485):
+    https://grafana.com/grafana/dashboards/20417
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

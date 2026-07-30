@@ -1,0 +1,42 @@
+# Wave 30 — deploys the shared hub Cilium Gateway
+# (platform/gateway-api/hub-gateway.yaml). Needs cert-manager's CRDs/webhook
+# (20-cert-manager.yaml, wave "20") to issue the per-listener TLS certs,
+# and Cilium's Gateway API controller + the CRDs themselves
+# (10-cilium.yaml wave "10", 00-gateway-api-crds.yaml wave "00").
+#
+#
+# include: only picks up hub-gateway.yaml from the shared
+# platform/gateway-api/ directory — spoke-gateway.yaml is applied
+# separately by argocd/spokes/infra/30-gateway.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: platform/gateway-api
+    directory:
+      include: "hub-gateway.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

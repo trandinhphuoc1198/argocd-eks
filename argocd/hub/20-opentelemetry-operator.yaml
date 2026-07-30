@@ -1,0 +1,46 @@
+# Wave 20 — NEW as of the hub/spoke observability re-split. The OTel
+# aggregator now runs on hub (platform/values/hub/otel.yaml), so hub needs
+# the OpenTelemetryCollector + Instrumentation CRDs too. Instrumentation CR
+# itself is not used on hub (no app pods to instrument), but the chart
+# installs both CRDs together. Mirrors
+# argocd/spokes/infra/30-opentelemetry-operator.yaml (kept at spoke's wave
+# "30" there; hub groups it into "20" alongside cert-manager/autoscaler
+# since it only needs Cilium, same dependency depth).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opentelemetry-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  sources:
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-operator
+      targetRevision: "0.114.1"
+      helm:
+        releaseName: opentelemetry-operator
+        valueFiles:
+          - $values/platform/values/base/otel-operator.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

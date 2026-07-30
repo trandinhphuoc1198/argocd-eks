@@ -1,0 +1,16 @@
+apiVersion: v2
+name: postgresql
+description: >
+  CloudNativePG Cluster (1 primary + 1 replica) with PgBouncer pooler,
+  ServiceMonitor, and gp3 EBS storage for self-hosted EC2 Kubernetes.
+type: application
+version: 0.1.0
+appVersion: "16.3"
+
+keywords:
+  - postgresql
+  - cloudnativepg
+  - database
+
+maintainers:
+  - name: platform-team

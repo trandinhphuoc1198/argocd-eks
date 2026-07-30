@@ -1,0 +1,7 @@
+# platform/values/hub/cert-manager.yaml
+#
+# Hub-tier override, layered on top of platform/values/base/cert-manager.yaml
+# by argocd/hub/01-cert-manager.yaml. Empty today — the hub runs cert-manager
+# with no tier-specific differences from spoke. Add keys here if that ever
+# changes; do not edit base/cert-manager.yaml to special-case the hub.
+{}

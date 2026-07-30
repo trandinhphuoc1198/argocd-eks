@@ -1,0 +1,25 @@
+# platform/clustermesh/common/ca-issuer.yaml
+#
+# ClusterIssuer for Cilium Cluster Mesh's four mTLS certs (admin/client/
+# server/relay), referenced from
+# platform/values/base/cilium.yaml -> clustermesh.apiserver.tls.certManagerIssuerRef.
+#
+# Deliberately separate from platform/cert-manager/cert-manager-config.yaml
+# (internal-ca-issuer): that one is a self-signed root generated
+# INDEPENDENTLY on every cluster it's applied to — hub's root and each
+# spoke's root share nothing. Cluster Mesh mTLS requires every cluster's
+# clustermesh-apiserver to trust the SAME root, so this issuer is backed
+# by a "clustermesh-ca" Secret containing a single CA key pair shared by
+# every cluster — generated once on the hub
+# (platform/clustermesh/hub/ca-certificate.yaml) and distributed to every
+# spoke via ESO (platform/clustermesh/hub/ca-pushsecret.yaml pushes it out,
+# platform/clustermesh/spoke/external-secret.yaml pulls it in). This
+# manifest itself is tier-agnostic — it just points at whatever local
+# Secret named "clustermesh-ca" exists, however it got there.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: clustermesh-ca-issuer
+spec:
+  ca:
+    secretName: clustermesh-ca

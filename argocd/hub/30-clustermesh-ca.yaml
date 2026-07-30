@@ -1,0 +1,58 @@
+# Wave 30 — hub generates the shared Cluster Mesh mTLS root locally via
+# cert-manager (platform/clustermesh/hub/ca-certificate.yaml) and pushes
+# it to AWS Secrets Manager (hub/ca-pushsecret.yaml) for every spoke to
+# pull. Needs cert-manager's CRDs/webhook (20-cert-manager.yaml) and
+# External Secrets' CRDs/webhook (20-external-secrets.yaml), both wave
+# "20".
+#
+# IAM: hub's node instance-profile role needs WRITE access
+# (secretsmanager:CreateSecret/PutSecretValue/DescribeSecret/TagResource)
+# on "clustermesh/*" — broader than every spoke's read-only grant. See
+# platform/clustermesh/hub/ca-pushsecret.yaml's header comment.
+#
+# clustermesh-apiserver's Certificate (created by the Cilium chart at wave
+# "10" once clustermesh.apiserver.tls.certManagerIssuerRef is set in
+# platform/values/base/cilium.yaml) will sit Pending until this Application
+# syncs, then self-heal — expected, not a bug, same cross-wave-dependency
+# pattern as e.g. Grafana dashboard ConfigMaps waiting on the sidecar.
+#
+# See platform/clustermesh/hub/ca-certificate.yaml for a real disaster-
+# recovery hazard this introduces — read it before ever rebuilding the hub.
+#
+# Multi-source: "common" is the tier-agnostic ClusterIssuer + SecretStore
+# (also used by every spoke); "hub" is the generate-and-push half that
+# only the hub runs. Spokes combine "common" with "spoke" instead — see
+# argocd/spokes/infra/30-clustermesh-ca.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clustermesh-ca
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  sources:
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      path: platform/clustermesh/common
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      path: platform/clustermesh/hub
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

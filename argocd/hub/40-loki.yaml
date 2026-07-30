@@ -1,0 +1,43 @@
+# Wave 40 — MOVED FROM argocd/spokes/infra/40-loki.yaml. Loki now runs only
+# on hub. Uses the 'grafana-community' fork repo, same chart as before.
+# Needs Cilium networking (wave "10") + the observability namespace it
+# creates itself; co-located at wave "40" alongside the rest of the
+# observability backend.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: "12.0.0"
+      helm:
+        releaseName: loki
+        valueFiles:
+          - $values/platform/values/hub/loki.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

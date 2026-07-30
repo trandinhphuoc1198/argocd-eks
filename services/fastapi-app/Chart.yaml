@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fastapi-app
+description: Helm chart for deploying the FastAPI application behind Gateway API.
+type: application
+version: 0.1.0
+appVersion: "6b1b515a4ba21d122e4f33e3381c866a48ba5098"

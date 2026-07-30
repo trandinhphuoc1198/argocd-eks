@@ -1,0 +1,47 @@
+# Wave 10 — day-0 bootstrap layer. AWS Cloud Controller Manager on the hub
+# is already running (installed by Terraform, outside this repo). This
+# Application takes over as source of truth going forward.
+#
+# base + overlay: platform/values/base/aws-ccm.yaml holds config shared by
+# every tier; platform/values/hub/aws-ccm.yaml is this tier's override
+# (empty today). See argocd/README.md#hub-vs-spoke-values.
+#
+# Unlike Cilium, losing CCM briefly doesn't take the network down, so
+# prune: true is safe here.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-cloud-controller-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  sources:
+    - repoURL: https://kubernetes.github.io/cloud-provider-aws
+      chart: aws-cloud-controller-manager
+      targetRevision: "0.0.11"
+      helm:
+        valueFiles:
+          - $values/platform/values/base/aws-ccm.yaml
+          - $values/platform/values/hub/aws-ccm.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

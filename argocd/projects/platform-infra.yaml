@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-infra
+  namespace: argocd
+spec:
+  description: >
+    Cluster infrastructure for SPOKE clusters
+
+  sourceRepos:
+    - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+    - "https://github.com/kubernetes-sigs/gateway-api.git"
+    - "https://kubernetes.github.io/cloud-provider-aws"
+    - "https://helm.cilium.io/"
+    - "https://charts.jetstack.io"
+    - "https://charts.external-secrets.io"
+    - "https://kubernetes.github.io/autoscaler"
+    - "https://prometheus-community.github.io/helm-charts"
+    - "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
+    - "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    - "https://grafana.github.io/helm-charts"
+    - "https://grafana-community.github.io/helm-charts"
+    - "https://kedacore.github.io/charts"
+    - "https://cloudnative-pg.github.io/charts"
+    - "https://kubernetes-sigs.github.io/metrics-server/"
+
+  # Wildcarded server - these Applications land on whichever spoke the
+  # ApplicationSet cluster generator produced them for. Namespace scoping
+  # below is what actually bounds blast radius now.
+  destinations:
+    - server: "*"
+      namespace: kube-system
+    - server: "*"
+      namespace: gateway-system
+    - server: "*"
+      namespace: observability
+    - server: "*"
+      namespace: keda
+    - server: "*"
+      namespace: cnpg-system
+    - server: "*"
+      namespace: monitoring
+    - server: "*"
+      namespace: cert-manager
+    - server: "*"
+      namespace: cilium-secrets
+    - server: "*"
+      namespace: external-secrets
+
+  # These charts legitimately install CRDs, StorageClasses, ClusterRoles,
+  # ClusterRoleBindings, the CSIDriver object, etc. - kept wide open here,
+  # the namespace scoping above is the real boundary for this project.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

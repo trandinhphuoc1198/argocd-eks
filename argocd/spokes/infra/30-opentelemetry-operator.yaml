@@ -1,0 +1,51 @@
+# Wave 30 — provides the OpenTelemetryCollector and Instrumentation CRDs
+# that the otel-collectors workload (wave "40") and fastapi-app's
+# auto-instrumentation annotation (wave "60") depend on.
+#
+# UPDATED as of the hub/spoke observability re-split: now references
+# platform/values/base/otel-operator.yaml instead of the old
+# platform/values/spoke/otel-operator.yaml — hub runs this Operator too
+# now (argocd/hub/20-opentelemetry-operator.yaml) with identical config,
+# so it was promoted to base/ per this repo's base+tier convention. The
+# old spoke/otel-operator.yaml file was deleted.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: opentelemetry-operator
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'opentelemetry-operator-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "30"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+          chart: opentelemetry-operator
+          targetRevision: "0.114.1"
+          helm:
+            releaseName: opentelemetry-operator
+            valueFiles:
+              - $values/platform/values/base/otel-operator.yaml
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: observability
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

@@ -1,0 +1,84 @@
+name: Validate manifests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.2
+
+      - name: Find and Lint all Helm charts
+        run: |
+          find . -name "Chart.yaml" | while read -r chart_file; do
+            chart_dir=$(dirname "$chart_file")
+            echo "Linting chart located in: $chart_dir"
+            helm lint "$chart_dir"
+          done
+
+      - name: Render Helm charts to staging directory
+        run: |
+          mkdir -p /tmp/rendered-manifests
+
+          # --api-versions tells `helm template` which CRDs to pretend are
+          # installed in the target cluster. Without this, any template
+          # gated behind .Capabilities.APIVersions.Has (ServiceMonitor,
+          # ScaledObject, etc.) silently renders to nothing — no error,
+          # no warning — and Trivy never sees those manifests at all.
+          # Keep this list in sync with the CRDs your charts check for.
+          API_VERSIONS=(
+            --api-versions monitoring.coreos.com/v1/ServiceMonitor
+            --api-versions monitoring.coreos.com/v1/PodMonitor
+            --api-versions keda.sh/v1alpha1/ScaledObject
+            --api-versions postgresql.cnpg.io/v1/Cluster
+            --api-versions postgresql.cnpg.io/v1/Pooler
+            --api-versions opentelemetry.io/v1beta1/OpenTelemetryCollector
+            --api-versions opentelemetry.io/v1alpha1/Instrumentation
+          )
+
+          # Dynamically loop through your known chart directories to render them
+          # Using a loop here ensures we can output them uniquely to a single directory
+          for chart_path in services/fastapi-app services/postgresql platform/charts/otel ; do
+            if [ -d "$chart_path" ]; then
+              chart_name=$(basename "$chart_path")
+              echo "Rendering $chart_name..."
+              helm template "$chart_name" "$chart_path" "${API_VERSIONS[@]}" > "/tmp/rendered-manifests/${chart_name}.yaml"
+            fi
+          done
+
+      - name: Verify ServiceMonitor/ScaledObject manifests actually rendered
+        run: |
+          # Fail loudly instead of silently if a CRD-gated resource we
+          # expect to render (e.g. after adding a new chart or CRD check)
+          # doesn't show up — catches the exact bug this step used to hide.
+          if ! grep -q "kind: ServiceMonitor" /tmp/rendered-manifests/fastapi-app.yaml; then
+            echo "::error::Expected a ServiceMonitor in fastapi-app.yaml but none rendered. Check --api-versions coverage."
+            exit 1
+          fi
+
+      - name: Scan rendered manifests with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '/tmp/rendered-manifests'
+          exit-code: '1'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Validate shell scripts with ShellCheck
+        run: |
+          # Dynamically finds all .sh files in the repo and lints them thoroughly
+          # Shellcheck is pre-installed on the ubuntu-latest runner
+          find . -name "*.sh" -print0 | xargs -0 -r shellcheck

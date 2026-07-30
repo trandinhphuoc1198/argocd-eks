@@ -1,0 +1,92 @@
+# platform/gateway-api/spoke-gateway.yaml
+#
+# One shared Gateway per spoke cluster — mirrors how one ingress-nginx
+# controller used to front every hostname. Every app's HTTPRoute attaches
+# to this Gateway by name/namespace + sectionName (the listener it wants).
+#
+# grafana/prometheus/alertmanager-https listeners REMOVED as of the
+# hub/spoke observability re-split — those UIs now run only on hub
+# (platform/gateway-api/hub-gateway.yaml). Their old HTTPRoutes under
+# platform/gateway-routes/spoke/ should be deleted from the repo; the
+# replacements live under platform/gateway-routes/hub/.
+#
+# NOTE — Service exposure (Path B, chosen over keeping the old manual ALB):
+# Cilium auto-creates a Service named "cilium-gateway-spoke-gateway"
+# (type: LoadBalancer, the Gateway API default) in this namespace.
+# aws-cloud-controller-manager (already running, service controller not
+# disabled) watches that Service and provisions a real AWS NLB + target
+# group for it automatically — one per spoke. This REPLACES the old
+# manually-managed ALB target group; retire that ALB/target group in
+# Terraform once this is live and confirmed healthy.
+#
+# spec.infrastructure.annotations below are copied onto the generated
+# Service by Cilium's Gateway controller and are the legacy in-tree AWS
+# annotation family that aws-cloud-controller-manager still honors for
+# LoadBalancer-type Services.
+#
+# After first sync, find the NLB's DNS name and point every hostname's
+# Route53 record at it (CNAME — all listeners on this Gateway share one LB):
+#   kubectl get svc -n gateway-system cilium-gateway-spoke-gateway \
+#     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+# (or `kubectl get gateway spoke-gateway -n gateway-system -o yaml` and
+# read .status.addresses once Cilium populates it from the Service).
+#
+# Also confirm node security groups allow the NLB's health checks and
+# 80/443 traffic — that's Terraform/SG territory, outside this repo.
+#
+# externalTrafficPolicy (Local vs Cluster) is left at the Kubernetes
+# default (Cluster) here rather than guessed at — Local better preserves
+# client source IP with an NLB, but the exact Cilium 1.16.0 mechanism to
+# set it for a Gateway-managed Service should be confirmed against your
+# version's docs before changing it.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: spoke-gateway
+  namespace: gateway-system
+  annotations:
+    # cert-manager's gateway-shim (enabled via config.enableGatewayAPI in
+    # platform/values/base/cert-manager.yaml) reads this the same way it
+    # used to read it off each Ingress, and issues one Certificate per
+    # listener below into this namespace.
+    cert-manager.io/cluster-issuer: internal-ca-issuer
+spec:
+  gatewayClassName: cilium
+  infrastructure:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: fastapi-https
+      hostname: fastapi.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: fastapi-app-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: hubble-https
+      hostname: hubble.phuoctd6.shop
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: hubble-tls
+      allowedRoutes:
+        namespaces:
+          from: All

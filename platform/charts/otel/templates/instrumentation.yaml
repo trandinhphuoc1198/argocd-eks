@@ -1,0 +1,111 @@
+# charts/otel/templates/instrumentation.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Instrumentation CR
+#
+# The OTel Operator watches for pods annotated with:
+#   instrumentation.opentelemetry.io/inject-python: "observability/fastapi-instrumentation"
+#
+# It then:
+#   1. Injects an init-container that copies the Python SDK into the pod.
+#   2. Sets PYTHONPATH + all OTEL_* env vars automatically.
+#   3. Points the SDK at the node-local DaemonSet collector via HOST_IP.
+#
+# Nothing needs to be set in the application Deployment — the operator handles
+# all of it from this CR.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: {{ .Values.instrumentation.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "otel.labels" . | nindent 4 }}
+spec:
+  # ── Exporter ─────────────────────────────────────────────────────────────
+  # Points the SDK at the node-local DaemonSet Collector over HTTP (port 4318).
+  # HTTP/protobuf is used instead of gRPC to avoid fork-safety issues in
+  # master-worker runtimes like Gunicorn — gRPC uses background threads that
+  # don't survive fork() cleanly.
+  exporter:
+    endpoint: http://otel-collector-ds-collector.{{ .Values.global.namespace }}.svc.cluster.local:{{ .Values.collectorDaemonSet.ports.otlpHttp }}
+
+  # ── Propagators ──────────────────────────────────────────────────────────
+  propagators:
+    - tracecontext   # W3C TraceContext — standard cross-service propagation
+    - baggage        # W3C Baggage
+    - b3             # B3 multi-header (Zipkin / legacy compat)
+
+  # ── Sampler ──────────────────────────────────────────────────────────────
+  # Keep head sampling at 1.0 so ALL spans reach the aggregator.
+  # Tail sampling (in the aggregator collector) makes the real keep/drop
+  # decision once the full trace is known. Head-dropping here would
+  # prevent the tail sampler from ever seeing those traces.
+  sampler:
+    type: parentbased_traceidratio
+    argument: {{ .Values.instrumentation.samplingRatio | quote }}
+
+  # ── Python auto-instrumentation ───────────────────────────────────────────
+  python:
+    image: {{ .Values.instrumentation.python.image | quote }}
+    resourceRequirements:
+      {{- toYaml .Values.instrumentation.python.resourceRequirements | nindent 6 }}
+    env:
+      # ── Downward API — HOST_IP for the exporter endpoint ──────────────────
+      # The operator resolves this at pod admission time via the downward API.
+      - name: HOST_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP
+
+      # ── Exporters ─────────────────────────────────────────────────────────
+      - name: OTEL_TRACES_EXPORTER
+        value: otlp
+      - name: OTEL_METRICS_EXPORTER
+        value: none         # metrics collected at node level; avoid double-counting
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp         # SDK-emitted logs → DaemonSet → aggregator → Loki/Tempo
+
+      # HTTP/protobuf — fork-safe for Gunicorn/Uvicorn master-worker processes.
+      # gRPC background threads don't survive fork() cleanly.
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: http/protobuf
+      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+        value: http/protobuf
+
+      # ── Log correlation ───────────────────────────────────────────────────
+      # Injects trace_id, span_id, and trace_flags into every Python log record.
+      # These fields are also parsed by the filelog receiver in the DaemonSet
+      # so stdout/stderr JSON logs are correlated with traces in Grafana.
+      - name: OTEL_PYTHON_LOG_CORRELATION
+        value: "true"
+      - name: OTEL_PYTHON_LOG_LEVEL
+        value: "info"
+
+      # ── Batch span processor ─────────────────────────────────────────────
+      - name: OTEL_BSP_MAX_EXPORT_BATCH_SIZE
+        value: "256"
+      - name: OTEL_BSP_EXPORT_TIMEOUT
+        value: "5000"   # ms
+
+      {{- with .Values.instrumentation.env }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+
+  # ── Resource attributes ───────────────────────────────────────────────────
+  # The operator formats and injects these as OTEL_RESOURCE_ATTRIBUTES safely —
+  # no risk of the multi-line space bug that affects manual env var declarations.
+  # resourceAttributes must be a plain key:value map — NOT a list of objects.
+  #
+  # k8s.cluster.name is merged in here (rather than added as a second,
+  # separate resource block) so it shows up on every SDK-emitted span AND
+  # log from the moment they're created — see .Values.global.clusterName's
+  # comment in values.yaml for why this matters once there's more than one
+  # spoke. Only merged in when clusterName is actually set, so this stays a
+  # no-op on today's single-spoke setup.
+  resource:
+    resourceAttributes:
+      {{- $attrs := .Values.instrumentation.resourceAttributes }}
+      {{- if .Values.global.clusterName }}
+      {{- $attrs = merge (dict "k8s.cluster.name" .Values.global.clusterName) $attrs }}
+      {{- end }}
+      {{- toYaml $attrs | nindent 6 }}

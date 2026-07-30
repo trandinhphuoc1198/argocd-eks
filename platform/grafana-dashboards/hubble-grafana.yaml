@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Hubble Grafana dashboard — ConfigMap auto-discovered by Grafana sidecar
+#
+# Apply with:
+#   kubectl apply -f k8s/helm/hubble-grafana-dashboard.yaml
+#
+# The 'grafana_dashboard: "1"' label causes the kube-prometheus-stack Grafana
+# sidecar to auto-import this dashboard. No manual steps in Grafana needed.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-grafana-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  hubble-dashboard.json: |
+    {
+      "title": "Cilium / Hubble",
+      "uid": "cilium-hubble",
+      "version": 1,
+      "schemaVersion": 36,
+      "refresh": "30s",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Total Flows (last 5m)",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "targets": [{
+            "expr": "sum(increase(hubble_flows_processed_total[5m]))",
+            "legendFormat": "Flows"
+          }]
+        },
+        {
+          "type": "stat",
+          "title": "Dropped Flows (last 5m)",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "targets": [{
+            "expr": "sum(increase(hubble_drop_total[5m]))",
+            "legendFormat": "Drops"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "HTTP Request Rate by Source",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "targets": [{
+            "expr": "sum by (source) (rate(hubble_http_requests_total[2m]))",
+            "legendFormat": "{{source}}"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "DNS Queries by Source",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "targets": [{
+            "expr": "sum by (source) (rate(hubble_dns_queries_total[2m]))",
+            "legendFormat": "{{source}}"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "Dropped Packets by Reason",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+          "targets": [{
+            "expr": "sum by (reason) (rate(hubble_drop_total[2m]))",
+            "legendFormat": "{{reason}}"
+          }]
+        }
+      ],
+      "templating": { "list": [] },
+      "time": { "from": "now-1h", "to": "now" },
+      "timepicker": {}
+    }

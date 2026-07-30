@@ -1,0 +1,21 @@
+# MOVED FROM platform/gateway-routes/spoke/alertmanager-httproute.yaml —
+# Alertmanager only runs on hub now. "alertmanager-operated" is the
+# Prometheus-Operator-generated governing Service name (fixed, independent
+# of fullnameOverride), so this one is unaffected by the
+# monitoring → monitoring-hub rename.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: hub-gateway
+      namespace: gateway-system
+      sectionName: alertmanager-https
+  hostnames:
+    - alertmanager.phuoctd6.shop
+  rules:
+    - backendRefs:
+        - name: alertmanager-operated
+          port: 9093

@@ -1,0 +1,43 @@
+# Wave 10 — day-0 cluster bootstrap layer (with 10-cilium.yaml,
+# 10-aws-ccm.yaml). ArgoCD installs itself here (chicken-and-egg — this
+# manifest is applied once by hand via init.sh, same as the Helm install
+# it describes); it has no dependency on anything else in this repo, it
+# just shares the "day-0" wave with Cilium/CCM conceptually.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: "10.1.1"
+      helm:
+        releaseName: argocd
+        valueFiles:
+          - $values/platform/values/hub/argocd.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

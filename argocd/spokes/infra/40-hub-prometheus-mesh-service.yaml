@@ -1,0 +1,46 @@
+# Wave 40 — needs the "monitoring" namespace to already exist, which
+# kube-prometheus-stack creates at wave "30" (CreateNamespace=true). Must
+# land before anything that resolves "monitoring-hub-prometheus" locally:
+#   - kube-prometheus-stack's own remoteWrite (wave "30", same release —
+#     the Service just needs to exist by the time Prometheus Agent starts
+#     scraping/pushing, not before the chart syncs)
+#   - fastapi-app's KEDA ScaledObject (wave "60")
+#
+# Deploys platform/monitoring-configs/hub-prometheus-mesh-service.yaml —
+# a plain manifest, not a Helm chart, same pattern as
+# 40-cilium-servicemonitors.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hub-prometheus-mesh-service
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'hub-prometheus-mesh-service-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "40"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      source:
+        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        targetRevision: main
+        path: platform/monitoring-configs
+        directory:
+          include: "hub-prometheus-mesh-service.yaml"
+      destination:
+        server: '{{server}}'
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

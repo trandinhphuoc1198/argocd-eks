@@ -1,0 +1,146 @@
+# platform/values/hub/kube-prometheus-stack.yaml
+#
+# HUB ONLY. This is now the single central Prometheus/Grafana/Alertmanager
+# for the whole fleet. Spokes no longer run full Prometheus — they run
+# Prometheus in Agent mode (platform/values/spoke/kube-prometheus-stack.yaml)
+# and remote_write into this one.
+#
+# fullnameOverride is set right here (not in the Application's
+# valuesObject) — it's a static string with no ArgoCD-level templating
+# need, so it belongs in the values file like everything else that
+# defines this release's identity. DELIBERATELY "monitoring-hub", not
+# "monitoring" — every spoke also runs its own local Prometheus (Agent
+# mode) whose Operator-created Service would otherwise be named
+# identically to this one. If both were named "monitoring-prometheus" and
+# this one were marked Cilium-global, a global service lookup from a
+# spoke could silently load-balance between its own broken local agent
+# (no query API) and this real one. Distinct names remove that ambiguity
+# entirely — every consumer (KEDA, spoke's OTel remote-write exporter)
+# points at "monitoring-hub-prometheus" explicitly.
+fullnameOverride: monitoring-hub
+
+grafana:
+  adminPassword: kagura12
+  deploymentStrategy:
+    type: Recreate
+
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+    storageClassName: ebs-csi
+
+  service:
+    type: ClusterIP
+
+  ingress:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 300m
+      memory: 500Mi
+    limits:
+      cpu: 600m
+      memory: 700Mi
+
+prometheus:
+  prometheusSpec:
+    # ── Central remote-write receiver ──────────────────────────────────────
+    # Accepts remote_write pushes from every spoke's Prometheus Agent.
+    enableRemoteWriteReceiver: true
+
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+
+    # Longer retention than a spoke ever needed locally — this is now the
+    # fleet's single source of truth for historical metrics.
+    retention: 15d
+
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: ebs-csi
+          resources:
+            requests:
+              storage: 5Gi
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  # VERIFY: chart-generated Service name for this subchart with
+  # fullnameOverride "monitoring-hub" — same unverified-naming caveat the
+  # rest of this repo already flags for kube-prometheus-stack subchart
+  # Services. Confirm with `kubectl get svc -n monitoring` before relying
+  # on "monitoring-hub-prometheus" downstream (KEDA, spoke OTel exporter).
+  service:
+    annotations:
+      # ── Cilium Cluster Mesh ────────────────────────────────────────────
+      # Exposes this Service's endpoints to every meshed spoke cluster
+      # under the SAME name+namespace. Spokes never need hub's IP/NLB —
+      # they just resolve "monitoring-hub-prometheus.monitoring.svc.cluster.local"
+      # locally and Cilium routes it here.
+      service.cilium.io/global: "true"
+      service.cilium.io/shared: "true"
+
+  # Routed by platform/gateway-routes/hub/prometheus-httproute.yaml.
+  ingress:
+    enabled: false
+
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: ebs-csi
+          resources:
+            requests:
+              storage: 1Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  # Routed by platform/gateway-routes/hub/alertmanager-httproute.yaml.
+  ingress:
+    enabled: false
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+prometheus-node-exporter:
+  priorityClassName: system-node-critical
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

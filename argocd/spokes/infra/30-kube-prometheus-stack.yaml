@@ -1,0 +1,62 @@
+# Wave 30 — needs prometheus-operator-crds and the 'ebs-csi' StorageClass
+# from aws-ebs-csi-driver (wave "20") on that spoke.
+#
+# UPDATED as of the hub/spoke observability re-split: this Prometheus is
+# now Agent mode only (platform/values/spoke/kube-prometheus-stack.yaml —
+# no local Grafana/Alertmanager/query API, remote_writes to hub).
+# fullnameOverride and storageClassName both live in that values file now
+# — they're static strings with no ArgoCD-level templating need, so
+# there's no reason to also carry a valuesObject override here.
+#
+# helm.parameters (below) is different: it sets externalLabels.cluster
+# per spoke using '{{name}}', ArgoCD's own Go-template syntax — resolved
+# by the ApplicationSet controller before Helm ever sees it, so it CANNOT
+# live in a plain values file (Helm would just see the literal string
+# "{{name}}"). Same mechanism argocd/spokes/infra/10-cilium.yaml already
+# uses for Cluster Mesh identity. Without this, every spoke's samples land
+# in hub's single Prometheus with no way to tell them apart once there's
+# more than one spoke.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'kube-prometheus-stack-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "30"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://prometheus-community.github.io/helm-charts
+          chart: kube-prometheus-stack
+          targetRevision: "86.3.2"   # see argocd/bootstrap/capture-versions.sh
+          helm:
+            releaseName: kube-prometheus-stack
+            valueFiles:
+              - $values/platform/values/spoke/kube-prometheus-stack.yaml
+            parameters:
+              - name: prometheus.prometheusSpec.externalLabels.cluster
+                value: '{{name}}'
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

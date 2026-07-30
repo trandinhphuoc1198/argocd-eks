@@ -1,0 +1,262 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-tempo
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  tempo.json: |-
+    {
+      "title": "Tempo Distributed Tracing",
+      "uid": "tempo-distributed",
+      "schemaVersion": 38,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "tags": ["tempo", "tracing", "s3", "distributed"],
+      "panels": [
+
+        {
+          "id": 1,
+          "title": "Spans Received/s — Distributor",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(tempo_distributor_spans_received_total{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 2,
+          "title": "Distributor Traces Received/s",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(tempo_distributor_traces_per_second{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 3,
+          "title": "Ingester — Live Traces in Memory",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(tempo_ingester_live_traces{namespace=\"observability\"})",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 4,
+          "title": "Ingester — Blocks Flushed to S3/s",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(tempodb_ingester_blocks_flushed_total{namespace=\"observability\"}[5m]))",
+              "legendFormat": "{{pod}} flushed"
+            },
+            {
+              "expr": "sum by(pod)(rate(tempodb_ingester_failed_flushes_total{namespace=\"observability\"}[5m]))",
+              "legendFormat": "{{pod}} failed"
+            }
+          ]
+        },
+
+        {
+          "id": 5,
+          "title": "Query Frontend — Request Rate/s",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(op)(rate(tempo_query_frontend_queries_total{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{op}}"
+            }
+          ]
+        },
+
+        {
+          "id": 6,
+          "title": "Query Frontend — P95 Latency by Operation",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by(op, le)(rate(tempo_query_frontend_query_range_duration_seconds_bucket{namespace=\"observability\"}[2m])))",
+              "legendFormat": "p95 {{op}}"
+            }
+          ]
+        },
+
+        {
+          "id": 7,
+          "title": "S3 Backend — Object Writes/s",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 23, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 6 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(tempodb_backend_write_request_duration_seconds_count{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}} writes"
+            },
+            {
+              "expr": "sum by(pod)(rate(tempodb_backend_read_request_duration_seconds_count{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}} reads"
+            }
+          ]
+        },
+
+        {
+          "id": 8,
+          "title": "S3 Backend — P95 Write/Read Latency",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 23, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by(le)(rate(tempodb_backend_write_request_duration_seconds_bucket{namespace=\"observability\"}[2m])))",
+              "legendFormat": "p95 write latency"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum by(le)(rate(tempodb_backend_read_request_duration_seconds_bucket{namespace=\"observability\"}[2m])))",
+              "legendFormat": "p95 read latency"
+            }
+          ]
+        },
+
+        {
+          "id": 9,
+          "title": "Compactor — Blocks Compacted/s",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 30, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 6 } } },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(tempodb_compactor_compacted_bytes_total{namespace=\"observability\"}[5m]))",
+              "legendFormat": "{{pod}} bytes compacted/s"
+            }
+          ]
+        },
+
+        {
+          "id": 10,
+          "title": "Ingester Memory — WAL + Heap",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 30, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "lineWidth": 2, "fillOpacity": 6 } } },
+          "targets": [
+            {
+              "expr": "sum by(pod)(container_memory_working_set_bytes{namespace=\"observability\", pod=~\"tempo-ingester.*\"})",
+              "legendFormat": "{{pod}} working set"
+            }
+          ]
+        },
+
+        {
+          "id": 11,
+          "title": "MetricsGenerator — Service Graph Edges/s",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 37, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } } },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(traces_service_graph_request_total{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}} edges"
+            },
+            {
+              "expr": "sum by(pod)(rate(traces_service_graph_request_failed_total{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{pod}} failed"
+            }
+          ]
+        },
+
+        {
+          "id": 12,
+          "title": "Span Metrics — requests/s by service (MetricsGenerator)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 37, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2, "fillOpacity": 8 } } },
+          "targets": [
+            {
+              "expr": "sum by(service)(rate(traces_spanmetrics_calls_total{namespace=\"observability\"}[1m]))",
+              "legendFormat": "{{service}}"
+            }
+          ]
+        },
+
+        {
+          "id": 13, "title": "Stat: Spans/s ingested", "type": "stat",
+          "gridPos": { "x": 0, "y": 44, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }] } } },
+          "targets": [{ "expr": "sum(rate(tempo_distributor_spans_received_total{namespace=\"observability\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 14, "title": "Stat: Flush Failures/s", "type": "stat",
+          "gridPos": { "x": 6, "y": 44, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "color": "red", "value": 0.01 }] } } },
+          "targets": [{ "expr": "sum(rate(tempodb_ingester_failed_flushes_total{namespace=\"observability\"}[5m])) or vector(0)", "legendFormat": "" }]
+        },
+        {
+          "id": 15, "title": "Stat: S3 Write P95", "type": "stat",
+          "gridPos": { "x": 12, "y": 44, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 3 }] } } },
+          "targets": [{ "expr": "histogram_quantile(0.95, sum by(le)(rate(tempodb_backend_write_request_duration_seconds_bucket{namespace=\"observability\"}[5m])))", "legendFormat": "" }]
+        },
+        {
+          "id": 16, "title": "Stat: Live Traces (all ingesters)", "type": "stat",
+          "gridPos": { "x": 18, "y": 44, "w": 6, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }] } } },
+          "targets": [{ "expr": "sum(tempo_ingester_live_traces{namespace=\"observability\"})", "legendFormat": "" }]
+        }
+
+      ]
+    }

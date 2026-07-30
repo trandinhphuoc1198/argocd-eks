@@ -1,0 +1,44 @@
+# Wave 50 — NEW as of the hub/spoke observability re-split. HTTPRoutes for
+# Grafana/Prometheus/Alertmanager, MOVED from platform/gateway-routes/spoke/
+# to platform/gateway-routes/hub/ since those UIs only live on hub now.
+# Needs the hub Gateway's new grafana/prometheus/alertmanager-https
+# listeners (platform/gateway-api/hub-gateway.yaml, wave "30") AND the
+# backend Services from kube-prometheus-stack (wave "40") — hence its own
+# wave "50", one after both.
+#
+# directory.exclude keeps this from also picking up
+# platform/gateway-routes/hub/argocd-httproute.yaml and hubble-httproute.yaml,
+# which stay owned by the existing argocd/hub/40-gateway-routes.yaml
+# Application at wave "40" — no need to duplicate/move those.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-routes
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: platform/gateway-routes/hub
+    directory:
+      include: "{grafana,prometheus,alertmanager}-httproute.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

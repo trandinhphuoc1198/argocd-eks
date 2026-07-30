@@ -1,0 +1,43 @@
+# Wave 20 — NEW as of the hub/spoke observability re-split. Hub previously
+# ran no PVC workloads; now Prometheus, Loki, Tempo, and Grafana all need
+# the 'ebs-csi' StorageClass. Needs Cilium's pod networking (wave "10") up
+# first, same as the spoke counterpart
+# (argocd/spokes/infra/20-aws-ebs-csi-driver.yaml).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-ebs-csi-driver
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+      chart: aws-ebs-csi-driver
+      targetRevision: "2.63.0"
+      helm:
+        releaseName: aws-ebs-csi-driver
+        valueFiles:
+          - $values/platform/values/base/ebs-csi.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

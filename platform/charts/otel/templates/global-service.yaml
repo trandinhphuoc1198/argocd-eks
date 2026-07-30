@@ -1,0 +1,54 @@
+# charts/otel/templates/global-service.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Cluster-Mesh-visible entrypoint for the aggregator's OTLP/gRPC endpoint.
+#
+# WHY THIS EXISTS (instead of just annotating the Operator-generated
+# "<agg>-collector-headless" Service): the OpenTelemetryCollector CRD gives
+# the Operator no field to inject arbitrary Service annotations onto the
+# Services it generates, so we can't mark that one global directly. Instead
+# this is a small, hand-written, headless Service selecting the SAME
+# aggregator pods (via the same labels the Operator itself sets on them —
+# see otel.labels' header comment), that we DO control and CAN annotate.
+#
+# HOW CROSS-CLUSTER RESOLUTION WORKS:
+#   - hub   (collectorDeployment.enabled: true)  → real aggregator pods
+#     exist here, so this Service has real local endpoints.
+#   - spoke (collectorDeployment.enabled: false) → no aggregator pods here,
+#     so this Service exists with ZERO local endpoints.
+#   Both are annotated global+shared with the SAME name+namespace. Cilium
+#   Cluster Mesh aggregates endpoints across every meshed cluster under
+#   that name, so a spoke's DaemonSet resolving
+#   "otel-collector-agg-collector-mesh.observability.svc.cluster.local"
+#   transparently gets routed to hub's real pod IPs — no hub IP/DNS/NLB
+#   ever needs to be hardcoded anywhere in this chart.
+#
+# Enable on BOTH tiers (platform/values/hub/otel.yaml and
+# platform/values/spoke/otel.yaml both set globalService.enabled: true).
+# ─────────────────────────────────────────────────────────────────────────────
+{{- if .Values.globalService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "otel.collectorAgg.serviceName" . }}-mesh
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "otel.labels" (dict "root" . "name" (include "otel.collectorAgg.serviceName" .)) | nindent 4 }}
+    app.kubernetes.io/component: opentelemetry-collector
+  annotations:
+    # ── Cilium Cluster Mesh ────────────────────────────────────────────────
+    service.cilium.io/global: "true"
+    service.cilium.io/shared: "true"
+spec:
+  type: ClusterIP
+  selector:
+    # Matches the labels the OTel Operator sets on every pod it generates
+    # for this CR — same selector convention already used by
+    # templates/servicemonitor.yaml for the same aggregator.
+    app.kubernetes.io/name: {{ include "otel.collectorAgg.serviceName" . }}
+    app.kubernetes.io/component: opentelemetry-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+{{- end }}

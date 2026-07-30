@@ -1,0 +1,20 @@
+# Hub counterpart of platform/gateway-routes/spoke/hubble-httproute.yaml —
+# replaces the hubble.ui.ingress Ingress previously configured via
+# platform/values/hub/cilium.yaml (now disabled in
+# platform/values/base/cilium.yaml -> hubble.ui.ingress.enabled: false).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+spec:
+  parentRefs:
+    - name: hub-gateway
+      namespace: gateway-system
+      sectionName: hubble-https
+  hostnames:
+    - hubble-hub.phuoctd6.shop
+  rules:
+    - backendRefs:
+        - name: hubble-ui
+          port: 80

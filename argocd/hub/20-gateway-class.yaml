@@ -1,0 +1,43 @@
+# Wave 20 — deploys the explicitly-managed "cilium" GatewayClass +
+# CiliumGatewayClassConfig (platform/gateway-api/gateway-class.yaml),
+# which enables JSON access logging on Gateway-managed Envoy listeners.
+#
+# Must land after Cilium's operator is up (10-cilium.yaml, wave "10") so
+# it can reconcile the GatewayClass, and before 30-gateway.yaml creates
+# the Gateway object that references gatewayClassName: cilium.
+#
+# Replaces Cilium's auto-created "cilium" GatewayClass — do not also let
+# 30-gateway.yaml or Cilium itself re-create an unparented one; this
+# Application now owns that resource going forward.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-class
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: platform/gateway-api
+    directory:
+      include: "gateway-class.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

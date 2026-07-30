@@ -1,0 +1,30 @@
+# platform/values/base/cert-manager.yaml
+#
+# Shared across every deployment tier. Consumed by BOTH:
+#   - argocd/hub/01-cert-manager.yaml            (hub)
+#   - argocd/spokes/infra/01-cert-manager.yaml   (every spoke)
+#   - helmfile/helmfile.yaml → cert-manager release
+#
+# Each tier layers its own platform/values/<tier>/cert-manager.yaml on top
+# of this file (currently empty on both tiers — no tier-specific overrides
+# exist yet). Add overrides there, not here, if hub and spoke ever need to
+# diverge.
+crds:
+  enabled: true
+  keep: true
+
+# ── Gateway API support ───────────────────────────────────────────────────
+# Now that ingress-nginx/Ingress is gone, TLS certs are requested via
+# annotations on Gateway resources (platform/gateway-api/) instead of on
+# Ingress objects. This flag makes cert-manager's gateway-shim controller
+# watch Gateways (same cert-manager.io/cluster-issuer annotation pattern as
+# Ingress used) and issue one Certificate per TLS listener that has a
+# certificateRefs entry — chart also wires up the extra RBAC this needs.
+#
+# Requires the Gateway API CRDs to exist before cert-manager starts —
+# already guaranteed by wave ordering (CRDs at wave "-1", cert-manager at
+# wave "01"/"02").
+config:
+  apiVersion: controller.config.cert-manager.io/v1alpha1
+  kind: ControllerConfiguration
+  enableGatewayAPI: true

@@ -1,0 +1,47 @@
+# Wave 50 — custom local chart (services/postgresql) — creates the CNPG
+# 'Cluster' + poolers. Depends on the CNPG operator's CRDs
+# (30-cnpg-operator.yaml, wave "30") and the 'ebs-csi' StorageClass
+# (20-aws-ebs-csi-driver.yaml, wave "20") on that spoke.
+#
+# NOTE: services/postgresql/values.yaml ships a placeholder app-user
+# password ("changeme", base64-encoded) committed in git. That's a
+# pre-existing condition in this repo, not something this ApplicationSet
+# introduces — but now that it's the live source of truth for every spoke,
+# consider moving it to a sealed-secret / external-secret before going
+# further than a dev environment.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: postgresql
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'postgresql-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "50"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-apps
+      source:
+        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        targetRevision: main
+        path: services/postgresql
+        helm:
+          releaseName: postgresql
+      destination:
+        server: '{{server}}'
+        namespace: db
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

@@ -1,0 +1,211 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# charts/otel/values.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ---------------------------------------------------------------------------
+# Global
+# ---------------------------------------------------------------------------
+global:
+  # Namespace where the OTel stack lives (must match --namespace on helm install)
+  namespace: observability
+  # Namespace where kube-prometheus-stack Grafana is running.
+  # Used by Tempo/Loki datasource ConfigMaps so Grafana's sidecar can discover them.
+  monitoringNamespace: monitoring
+  # Which cluster this chart is deployed to. Empty by default (single-spoke
+  # today has nothing to disambiguate). Set per-spoke via ApplicationSet
+  # parameter (argocd/spokes/infra/40-otel-collectors.yaml passes
+  # '{{name}}', the same cluster-name templating 10-cilium.yaml already
+  # uses for Cluster Mesh identity) once there's more than one spoke —
+  # otherwise every spoke's traces/logs/metrics land in hub's single
+  # Tempo/Loki/Prometheus with no way to tell which cluster they came from.
+  clusterName: ""
+
+# ---------------------------------------------------------------------------
+# Cross-cluster (Cilium Cluster Mesh) — see templates/global-service.yaml
+#
+# Default false so `helm template` with no overrides (CI's rendering step)
+# stays a no-op change. Both platform/values/hub/otel.yaml and
+# platform/values/spoke/otel.yaml set this to true — hub gets real
+# endpoints, spoke gets an endpoint-less Service that Cilium fills in with
+# hub's pods.
+# ---------------------------------------------------------------------------
+globalService:
+  enabled: false
+
+# ---------------------------------------------------------------------------
+# Collector — Node-level DaemonSet
+# Receives OTLP telemetry from pods on the node AND tails container log files
+# from /var/log/pods, parses JSON, extracts trace_id/span_id for correlation.
+#
+# Runs on EVERY cluster with instrumented application pods (i.e. spokes).
+# Disabled on hub (platform/values/hub/otel.yaml) — hub has no app pods to
+# instrument.
+# ---------------------------------------------------------------------------
+collectorDaemonSet:
+  enabled: true
+  name: otel-collector-ds
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  # Both protocols enabled:
+  #   gRPC (4317) — used by other cluster services
+  #   HTTP (4318) — required for fork-safe Python runtimes (Gunicorn/Uvicorn)
+  ports:
+    otlpGrpc: 4317
+    otlpHttp: 4318
+
+  # ---------------------------------------------------------------------------
+  # filelog receiver config
+  # ---------------------------------------------------------------------------
+  filelog:
+    # Restrict log collection to your app namespace.
+    # Change to "*" to collect from all namespaces (more noise).
+    # Must match APP_NAMESPACE in deploy.sh (default: fastapi)
+    namespaceFilter: "*" #{fastapi,db}
+
+# ---------------------------------------------------------------------------
+# Collector — Aggregator Deployment
+# Central fan-in: receives from all DaemonSet nodes (now across every
+# meshed cluster, not just the local one), applies tail-sampling, then
+# exports to backends.
+#
+# Runs ONLY on hub now (platform/values/hub/otel.yaml). Disabled on spoke
+# (platform/values/spoke/otel.yaml) — spoke DaemonSets forward to hub's
+# aggregator over Cluster Mesh instead of running their own.
+# ---------------------------------------------------------------------------
+collectorDeployment:
+  enabled: true
+  name: otel-collector-agg
+  replicas: 2
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 250m
+      memory: 128Mi
+
+  # ---------------------------------------------------------------------------
+  # Tail-sampling
+  #
+  # The real timing constraint is on the DaemonSet collector:
+  #   DaemonSet batch.timeout (2s) << Aggregator decisionWait (10s)
+  #   Spans must arrive at the aggregator before its 10s decision window closes.
+  #   The aggregator batch runs AFTER tail_sampling so its timeout has no
+  #   effect on sampling decisions at all.
+  #
+  # Now that the DaemonSet→Aggregator hop can cross a Cluster Mesh link,
+  # keep an eye on this margin — cross-cluster latency eats into it.
+  # ---------------------------------------------------------------------------
+  tailSampling:
+    decisionWait: 10s
+    # Formula: expectedTracesPerSec * decisionWait * 2 (burst headroom)
+    # 500 * 10 * 2 = 10 000
+    numTraces: 10000
+    expectedTracesPerSec: 500
+
+    errors:
+      enabled: true
+
+    slow:
+      enabled: true
+      thresholdMs: 2000
+
+    default:
+      samplingPercentage: 10
+
+  # Aggregator batch — runs after tail_sampling, no effect on sampling decisions.
+  batch:
+    sendBatchSize: 1024
+    sendBatchMaxSize: 2048
+    timeout: 10s
+
+# ---------------------------------------------------------------------------
+# Backends
+# ---------------------------------------------------------------------------
+backends:
+  # Console / stdout debug exporter — turn off in production
+  debug:
+    enabled: true
+    verbosity: detailed
+    samplingInitial: 100
+    samplingThereafter: 500
+
+  # Jaeger — receives traces via OTLP/gRPC
+  jaeger:
+    enabled: false
+    endpoint: "jaeger-collector.observability.svc.cluster.local:4317"
+
+  # Prometheus remote-write — receives metrics from the aggregator
+  prometheus:
+    enabled: false
+    endpoint: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+
+  # Grafana Tempo — traces backend
+  # Always send to the distributor — never directly to ingesters.
+  tempo:
+    enabled: true
+    endpoint: "tempo-distributor.observability.svc.cluster.local:4317"
+
+  # Grafana Loki — logs backend
+  # Receives logs from the aggregator via the loki exporter.
+  # Push endpoint points at the Loki gateway (nginx) which routes to distributors.
+  loki:
+    enabled: true
+    endpoint: "http://loki-gateway.observability.svc.cluster.local/otlp"
+
+  # Generic OTLP endpoint (e.g. Grafana Cloud, Honeycomb, Datadog)
+  otlpExternal:
+    enabled: false
+    endpoint: "https://otlp.example.com:4317"
+    tls:
+      insecure: false
+    headers: {}
+
+# ---------------------------------------------------------------------------
+# Instrumentation CR
+#
+# samplingRatio is intentionally 1.0 so ALL spans reach the aggregator.
+# Tail sampling in the aggregator makes the real keep/drop decision.
+# ---------------------------------------------------------------------------
+instrumentation:
+  name: fastapi-instrumentation
+
+  samplingRatio: "1.0"
+
+  python:
+    image: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:0.60b1"
+    resourceRequirements:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Extra env vars injected alongside the SDK vars. Use sparingly.
+  env: []
+
+  # Resource attributes on every span, metric, and log record.
+  resourceAttributes:
+    deployment.environment: production
+    service.namespace: fastapi
+
+
+# ---------------------------------------------------------------------------
+# ServiceMonitor — scrapes the aggregator Collector /metrics endpoint.
+# Requires kube-prometheus-stack CRDs.
+# ---------------------------------------------------------------------------
+serviceMonitor:
+  enabled: true
+  interval: "30s"
+  scrapeTimeout: "10s"
+  labels:
+    release: kube-prometheus-stack

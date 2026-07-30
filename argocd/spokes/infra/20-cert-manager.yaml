@@ -1,0 +1,50 @@
+# Wave 20 — needs Cilium's pod networking (wave "10") and the Gateway API
+# CRDs (wave "00", since config.enableGatewayAPI: true in
+# platform/values/base/cert-manager.yaml makes the chart watch Gateway
+# objects at startup).
+#
+# base + overlay: platform/values/base/cert-manager.yaml holds the config
+# shared by every tier; platform/values/spoke/cert-manager.yaml is this
+# tier's override (empty today). See argocd/README.md#hub-vs-spoke-values.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cert-manager
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'cert-manager-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "20"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://charts.jetstack.io
+          chart: cert-manager
+          targetRevision: "1.15.0"
+          helm:
+            releaseName: cert-manager
+            valueFiles:
+              - $values/platform/values/base/cert-manager.yaml
+              - $values/platform/values/spoke/cert-manager.yaml
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: cert-manager
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

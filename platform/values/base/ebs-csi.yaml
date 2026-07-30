@@ -1,0 +1,48 @@
+# platform/values/base/ebs-csi.yaml
+#
+# Shared across every deployment tier. Consumed by BOTH:
+#   - argocd/hub/20-aws-ebs-csi-driver.yaml            (hub)
+#   - argocd/spokes/infra/20-aws-ebs-csi-driver.yaml   (every spoke)
+#
+# PROMOTED here from platform/values/spoke/ebs-csi.yaml as of the
+# hub/spoke observability re-split — hub now needs the same 'ebs-csi'
+# StorageClass for Prometheus/Loki/Tempo/Grafana persistence, and the
+# config is identical on both tiers, so this belongs in base/ per this
+# repo's own base+tier convention (see argocd/README.md#hub-vs-spoke-values)
+# rather than duplicated per-tier. Add a platform/values/hub/ebs-csi.yaml
+# or platform/values/spoke/ebs-csi.yaml override file only if hub and
+# spoke ever actually need to diverge.
+storageClasses:
+  - name: ebs-csi
+    volumeBindingMode: WaitForFirstConsumer
+    reclaimPolicy: Delete
+    parameters:
+      type: gp3
+      encrypted: "true"
+
+controller:
+  replicaCount: 2
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app: ebs-csi-controller
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+node:
+  priorityClassName: system-node-critical
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

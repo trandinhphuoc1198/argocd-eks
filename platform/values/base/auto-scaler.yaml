@@ -1,0 +1,42 @@
+# platform/values/base/auto-scaler.yaml
+#
+# Shared across every deployment tier. Consumed by BOTH:
+#   - argocd/hub/01-cluster-autoscaler.yaml            (hub)
+#   - argocd/spokes/infra/01-cluster-autoscaler.yaml   (every spoke)
+#
+# extraArgs, resources, and scheduling are identical regardless of which
+# cluster's ASGs are being scaled. Only autoDiscovery.clusterName and
+# awsRegion are inherently per-cluster — those live in the tier overlay
+# (platform/values/hub/auto-scaler.yaml, platform/values/spoke/auto-scaler.yaml).
+
+cloudProvider: aws
+
+rbac:
+  create: true
+
+extraArgs:
+  skip-nodes-with-local-storage: false
+  skip-nodes-with-system-pods: true  # don't remove nodes running system pods
+  balance-similar-node-groups: true  # balance across multiple ASGs evenly
+  expander: least-waste               # scale-out strategy: pick ASG with least wasted resources
+  balancing-ignore-label: node-role.kubernetes.io/control-plane
+  scale-down-unneeded-time: 8m
+  scale-down-delay-after-add: 8m
+  scale-down-delay-after-delete: 0s
+  scale-down-delay-after-failure: 3m
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Pin CA to a stable node (optional but recommended) — same on every tier.
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"

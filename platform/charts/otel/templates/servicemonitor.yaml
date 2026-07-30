@@ -1,0 +1,56 @@
+# charts/otel/templates/servicemonitor.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# ServiceMonitor — scrapes the collector's own /metrics endpoint
+# so you can alert on dropped spans, queue depth, etc.
+# ─────────────────────────────────────────────────────────────────────────────
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-collector-aggregator
+  namespace: {{ .Values.global.monitoringNamespace }}
+  labels:
+    {{- include "otel.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "otel.collectorAgg.serviceName" . }}
+      app.kubernetes.io/component: opentelemetry-collector
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.global.namespace }}
+  endpoints:
+    - port: monitoring          # exposed on port 8888 by the collector
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      path: /metrics
+      scheme: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-collector-daemonset
+  namespace: {{ .Values.global.monitoringNamespace }}
+  labels:
+    {{- include "otel.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "otel.collectorDS.serviceName" . }}
+      app.kubernetes.io/component: opentelemetry-collector
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.global.namespace }}
+  endpoints:
+    - port: monitoring          # exposed on port 8888 by the collector
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      path: /metrics
+      scheme: http
+{{- end }}

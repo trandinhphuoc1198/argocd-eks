@@ -1,0 +1,26 @@
+# platform/values/hub/otel.yaml
+#
+# HUB ONLY. Hub runs ONLY the aggregator (tail-sampling, redaction, fan-out
+# to Tempo/Loki). No node-level DaemonSet here — hub has no instrumented
+# application pods to receive OTLP from directly.
+collectorDaemonSet:
+  enabled: false
+
+collectorDeployment:
+  enabled: true
+
+# Exposes the aggregator's OTLP endpoint to every meshed spoke cluster via
+# Cilium Cluster Mesh (see templates/global-service.yaml). Spokes resolve
+# the SAME name+namespace locally and get routed to these hub endpoints.
+globalService:
+  enabled: true
+
+backends:
+  # Tempo and Loki are now same-cluster (both run on hub too) — plain
+  # in-cluster DNS, no mesh annotation needed on those Services.
+  tempo:
+    enabled: true
+    endpoint: "tempo-distributor.observability.svc.cluster.local:4317"
+  loki:
+    enabled: true
+    endpoint: "http://loki-gateway.observability.svc.cluster.local/otlp"

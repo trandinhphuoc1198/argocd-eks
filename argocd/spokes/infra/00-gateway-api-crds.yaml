@@ -1,0 +1,39 @@
+# Wave 00 — zero-dependency layer, spoke counterpart of
+# argocd/hub/00-gateway-api-crds.yaml. Fanned out to every registered
+# spoke. Must land before Cilium's Gateway API controller starts
+# reconciling (10-cilium.yaml, wave "10").
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'gateway-api-crds-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "00"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      source:
+        repoURL: https://github.com/kubernetes-sigs/gateway-api.git
+        targetRevision: v1.6.1
+        path: config/crd/standard
+        directory:
+          recurse: true
+      destination:
+        server: '{{server}}'
+        namespace: gateway-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

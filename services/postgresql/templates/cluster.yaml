@@ -1,0 +1,55 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "postgresql.clusterName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgresql.labels" . | nindent 4 }}
+spec:
+  # ── Instances ──────────────────────────────────────────
+  instances: {{ .Values.cluster.instances }}   # 1 primary + 1 replica
+
+  imageName: {{ .Values.cluster.imageName }}
+
+  # ── Bootstrap ──────────────────────────────────────────
+  # Creates the database and owner on first start
+  bootstrap:
+    initdb:
+      database: {{ .Values.cluster.database }}
+      owner: {{ .Values.cluster.owner }}
+      secret:
+        name: {{ include "postgresql.secretName" . }}
+
+  # ── Superuser secret (operator-managed) ────────────────
+  # CNPG auto-generates the 'postgres' superuser secret;
+  # we keep it separate from the app user secret.
+  enableSuperuserAccess: true
+
+  # ── Storage ────────────────────────────────────────────
+  storage:
+    size: {{ .Values.cluster.storage.size }}
+    storageClass: {{ .Values.cluster.storage.storageClass }}
+
+  # ── PostgreSQL config ──────────────────────────────────
+  postgresql:
+    parameters:
+      {{- toYaml .Values.cluster.postgresql.parameters | nindent 6 }}
+
+  # ── Resources ──────────────────────────────────────────
+  resources:
+    {{- toYaml .Values.cluster.resources | nindent 4 }}
+
+  # ── Anti-affinity (spread primary/replica across nodes) ─
+  affinity:
+    enablePodAntiAffinity: {{ .Values.cluster.affinity.enablePodAntiAffinity }}
+    topologyKey: {{ .Values.cluster.affinity.topologyKey }}
+    podAntiAffinityType: {{ .Values.cluster.affinity.podAntiAffinityType }}
+
+  # ── Monitoring (exposes /metrics on port 9187) ──────────
+  monitoring:
+    enablePodMonitor: {{ .Values.monitoring.enabled }}
+
+  # ── Maintenance window ─────────────────────────────────
+  nodeMaintenanceWindow:
+    inProgress: {{ .Values.cluster.nodeMaintenanceWindow.inProgress }}
+    reusePVC: {{ .Values.cluster.nodeMaintenanceWindow.reusePVC }}

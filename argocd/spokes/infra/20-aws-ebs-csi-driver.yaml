@@ -1,0 +1,45 @@
+# Wave 20 — needs Cilium's pod networking (wave "10") up first. Provides
+# the 'ebs-csi' StorageClass that kube-prometheus-stack (wave "30") and
+# postgresql (wave "50") both provision PVCs against, so this must be
+# healthy before either of those.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: aws-ebs-csi-driver
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'aws-ebs-csi-driver-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "20"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+          chart: aws-ebs-csi-driver
+          targetRevision: "2.63.0"
+          helm:
+            releaseName: aws-ebs-csi-driver
+            valueFiles:
+              - $values/platform/values/base/ebs-csi.yaml
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

@@ -1,0 +1,39 @@
+# Wave 41 — NEW as of the hub/spoke observability re-split. Hub runs
+# Cilium too (10-cilium.yaml) but never had a local Prometheus to scrape
+# it with until now. Reuses the exact same manifest already deployed to
+# every spoke (platform/monitoring-configs/cilium-servicemonitors.yaml) —
+# ServiceMonitors are namespace-scoped selectors, so applying the same
+# file to hub just wires up hub's own Cilium/Hubble metrics, no content
+# changes needed. Needs the ServiceMonitor CRD, installed alongside
+# kube-prometheus-stack (40-kube-prometheus-stack.yaml, wave "40") — one
+# wave ahead of this rather than racing it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium-servicemonitors
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "50"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: platform/monitoring-configs
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

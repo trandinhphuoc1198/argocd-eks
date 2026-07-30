@@ -1,0 +1,65 @@
+# KEDA — Kubernetes Event-Driven Autoscaling
+# Chart: kedacore/keda
+# Docs:  https://keda.sh/docs/latest/deploy/#helm
+
+# ── Operator resources ────────────────────────────────────────────────────────
+resources:
+  operator:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+  metricApiServer:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+  webhooks:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  operator:
+    # info | debug | error
+    level: info
+    format: json
+  metricApiServer:
+    level: 0        # 0 = info, higher = more verbose
+
+# ── RBAC ──────────────────────────────────────────────────────────────────────
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+
+# ── Prometheus metrics scraping for KEDA itself ───────────────────────────────
+# Lets kube-prometheus-stack scrape KEDA operator and metrics-api-server pods.
+prometheus:
+  operator:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: kube-prometheus-stack
+  metricApiServer:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: kube-prometheus-stack
+  webhooks:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: kube-prometheus-stack

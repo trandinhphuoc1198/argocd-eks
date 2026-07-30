@@ -1,0 +1,26 @@
+# MOVED FROM platform/gateway-routes/spoke/grafana-httproute.yaml —
+# Grafana only runs on hub now. Same hostname as before (grafana.phuoctd6.shop)
+# since there's still exactly one Grafana in the fleet.
+#
+# Service name/port: same unverified assumption as the original spoke
+# file — "kube-prometheus-stack-grafana" appears to come from the Grafana
+# subchart's own naming, independent of the parent chart's
+# fullnameOverride (which is "monitoring-hub" here, see
+# argocd/hub/40-kube-prometheus-stack.yaml). VERIFY with
+# `kubectl get svc -n monitoring` after first sync.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: hub-gateway
+      namespace: gateway-system
+      sectionName: grafana-https
+  hostnames:
+    - grafana.phuoctd6.shop
+  rules:
+    - backendRefs:
+        - name: kube-prometheus-stack-grafana
+          port: 80

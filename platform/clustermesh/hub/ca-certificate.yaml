@@ -1,0 +1,48 @@
+# platform/clustermesh/hub/ca-certificate.yaml
+#
+# HUB ONLY. Generates the Cluster Mesh root CA locally using cert-manager,
+# the same self-signed-bootstrap pattern platform/cert-manager/
+# cert-manager-config.yaml already uses for internal-ca-issuer — except
+# this root gets pushed out to every spoke afterward (ca-pushsecret.yaml,
+# this directory), where internal-ca-issuer's root deliberately stays
+# local per-cluster.
+#
+# ⚠️  DISASTER-RECOVERY HAZARD — READ BEFORE TOUCHING THIS FILE ⚠️
+# cert-manager regenerates a Certificate's Secret whenever it's missing —
+# with NO awareness that a different value for "clustermesh-ca" already
+# exists in AWS Secrets Manager. If this Secret is ever deleted (hub
+# rebuild, namespace recreation, etc.), cert-manager will silently mint a
+# BRAND NEW, DIFFERENT root. Every spoke would keep trusting the OLD root
+# pulled from AWS, and Cluster Mesh mTLS breaks fleet-wide until someone
+# notices and investigates why — this is not a self-healing failure mode.
+#
+# duration is set to 10 years specifically to make this scenario as rare
+# as possible, but it does not protect against manual/accidental Secret
+# deletion. Before ANY hub rebuild, back up the "clustermesh-ca" Secret's
+# tls.crt/tls.key (or simply confirm they still match what's stored at
+# AWS Secrets Manager key "clustermesh/ca") and restore it BEFORE this
+# Certificate reconciles, rather than letting it regenerate from scratch.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: clustermesh-ca-bootstrap
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: clustermesh-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: clustermesh-ca
+  secretName: clustermesh-ca
+  duration: 87600h0m0s      # 10 years — see the DR warning above
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: clustermesh-ca-bootstrap
+    kind: Issuer

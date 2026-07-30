@@ -1,0 +1,51 @@
+# Wave 30 — spoke counterpart of argocd/hub/30-clustermesh-ca.yaml. Pulls
+# the CA the hub generated + pushed (platform/clustermesh/hub/) via ESO,
+# rather than generating its own — see platform/clustermesh/spoke/
+# external-secret.yaml. Needs cert-manager's CRDs/webhook
+# (20-cert-manager.yaml, wave "20") and the spoke External Secrets install
+# (20-external-secrets.yaml, wave "20").
+#
+# Multi-source: "common" is the tier-agnostic ClusterIssuer + SecretStore
+# (identical to the hub's copy); "spoke" is the pull-only half.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: clustermesh-ca
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'clustermesh-ca-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "30"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          path: platform/clustermesh/common
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          path: platform/clustermesh/spoke
+      destination:
+        server: '{{server}}'
+        namespace: cert-manager
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 15
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 5m

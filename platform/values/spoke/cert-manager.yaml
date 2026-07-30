@@ -1,0 +1,8 @@
+# platform/values/spoke/cert-manager.yaml
+#
+# Spoke-tier override, layered on top of platform/values/base/cert-manager.yaml
+# by argocd/spokes/infra/01-cert-manager.yaml and helmfile.yaml. Empty
+# today — every spoke runs cert-manager with no tier-specific differences
+# from the hub. Add keys here if that ever changes; do not edit
+# base/cert-manager.yaml to special-case spokes.
+{}

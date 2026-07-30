@@ -1,0 +1,27 @@
+# MOVED FROM platform/gateway-routes/spoke/prometheus-httproute.yaml —
+# this is now the ONE central Prometheus for the whole fleet.
+#
+# Service name/port: fullnameOverride is "monitoring-hub" now (renamed
+# from "monitoring" specifically to avoid a Cilium-global naming collision
+# with every spoke's own local Prometheus Agent — see
+# platform/values/hub/kube-prometheus-stack.yaml's header comment), so the
+# backend name below changed from "monitoring-prometheus" to
+# "monitoring-hub-prometheus" to match. VERIFY against your live cluster
+# (`kubectl get svc -n monitoring`) before relying on this — exact naming
+# can shift between chart versions, same caveat the original file flagged.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: hub-gateway
+      namespace: gateway-system
+      sectionName: prometheus-https
+  hostnames:
+    - prometheus.phuoctd6.shop
+  rules:
+    - backendRefs:
+        - name: monitoring-hub-prometheus
+          port: 9090

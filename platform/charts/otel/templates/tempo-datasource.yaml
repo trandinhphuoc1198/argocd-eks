@@ -1,0 +1,81 @@
+# charts/otel/templates/tempo-datasource.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Grafana datasource ConfigMap for Tempo
+#
+# kube-prometheus-stack's Grafana is configured with sidecar.datasources.enabled,
+# which watches for ConfigMaps labelled grafana_datasource=1 in any namespace
+# and hot-reloads them without restarting Grafana.
+#
+# This ConfigMap must be in the MONITORING namespace (not observability) so
+# the Grafana sidecar can see it — the sidecar watches all namespaces by default
+# but the label must match grafana.sidecar.datasources.label in kube-prometheus-stack.
+# ─────────────────────────────────────────────────────────────────────────────
+{{- if .Values.backends.tempo.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-grafana-datasource
+  # Must be in the monitoring namespace where Grafana's sidecar is running.
+  # Override via --set global.monitoringNamespace=<ns> if yours differs.
+  namespace: {{ .Values.global.monitoringNamespace | default "monitoring" }}
+  labels:
+    # This label triggers the Grafana sidecar to pick up the datasource.
+    # Must match grafana.sidecar.datasources.label in kube-prometheus-stack values.
+    grafana_datasource: "1"
+    {{- include "otel.labels" . | nindent 4 }}
+data:
+  tempo-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        # query-frontend HTTP port — Grafana proxies all trace queries here
+        url: http://tempo-query-frontend.{{ .Values.global.namespace }}.svc.cluster.local:3200
+        version: 1
+        isDefault: false
+        editable: false
+        jsonData:
+          # Enable trace-to-logs correlation in Grafana Explore
+          tracesToLogsV2:
+            datasourceUid: loki     # set to your Loki datasource UID if using Loki
+            spanStartTimeShift: "-1m"
+            spanEndTimeShift: "1m"
+            tags: [{ key: 'k8s.namespace.name', value: 'k8s_namespace_name' }, { key: 'service.name', value: 'service_name'  }]
+            filterByTraceID: true
+            filterBySpanID: false
+
+          # Enable trace-to-metrics correlation (links spans to Prometheus metrics)
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: "-1m"
+            spanEndTimeShift: "1m"
+            queries:
+              - name: "Request rate"
+                query: "sum(rate(http_requests_total{handler=\"$${__span.tags[\"http.route\"]}\"}[5m]))"
+              - name: "Error rate"
+                query: "sum(rate(http_requests_total{handler=\"$${__span.tags[\"http.route\"]}\", status_code=~\"5..\"}[5m]))"
+              - name: "Latency (p95)"
+                query: "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{handler=\"$${__span.tags[\"http.route\"]}\"}[5m])))"
+            
+          # Enable service graph in Grafana Explore
+          serviceMap:
+            datasourceUid: prometheus
+
+          # Node graph view in trace details
+          nodeGraph:
+            enabled: true
+
+          # Tempo search — enables TraceQL query editor in Explore
+          search:
+            hide: false
+
+          # lokiSearch allows jumping from a trace to correlated logs
+          lokiSearch:
+            datasourceUid: loki
+
+          httpMethod: GET
+          tracesToProfiles:
+            datasourceUid: ""    # set to Pyroscope UID if using continuous profiling
+{{- end }}

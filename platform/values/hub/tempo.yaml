@@ -1,0 +1,142 @@
+# platform/values/hub/tempo.yaml
+#
+# MOVED FROM platform/values/spoke/tempo.yaml. Tempo now runs only on hub.
+# The OTel aggregator (now also hub-only, platform/values/hub/otel.yaml)
+# sends to "tempo-distributor.observability.svc.cluster.local:4317" —
+# same-cluster now, plain in-cluster DNS, no Cilium global annotation
+# needed. Storage backend (S3) and every component below is otherwise
+# unchanged from the old spoke file.
+
+global:
+  clusterDomain: cluster.local
+
+storage:
+  trace:
+    backend: s3
+    s3:
+      bucket: tempo-s3-phuoctd6       # TODO: replace with your bucket name
+      region: ap-northeast-1               # TODO: replace with your bucket region
+      insecure: false                      # keep false — S3 always uses TLS
+      endpoint: s3.ap-northeast-1.amazonaws.com
+
+traces:
+  otlp:
+    grpc:
+      enabled: true
+
+distributor:
+  replicas: 1
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 60
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 64Mi
+
+ingester:
+  replicas: 2   # must not be lower than replication_factor
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 200Mi
+    limits:
+      cpu: 1000m
+      memory: 200Mi
+
+  persistence:
+    enabled: true
+    storageClass: ebs-csi
+    size: 1Gi
+    accessModes:
+      - ReadWriteOnce
+
+  extraEnv:
+    - name: AWS_REGION
+      value: ap-northeast-1
+
+  config:
+    replication_factor: 2
+
+querier:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+  extraEnv:
+    - name: AWS_REGION
+      value: ap-northeast-1
+
+queryFrontend:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 64Mi
+
+compactor:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 200Mi
+
+  extraEnv:
+    - name: AWS_REGION
+      value: ap-northeast-1
+
+  config:
+    compaction:
+      block_retention: 24h
+
+memcached:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true
+
+metricsGenerator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: ['service-graphs', 'span-metrics', 'local-blocks']
+      generate_native_histograms: both

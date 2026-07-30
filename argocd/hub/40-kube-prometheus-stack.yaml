@@ -1,0 +1,55 @@
+# Wave 40 — NEW as of the hub/spoke observability re-split. This is now the
+# fleet's single central Prometheus/Grafana/Alertmanager. Needs the
+# 'ebs-csi' StorageClass (20-aws-ebs-csi-driver.yaml, wave "20").
+#
+# fullnameOverride and storageClassName all live in
+# platform/values/hub/kube-prometheus-stack.yaml itself now, not a
+# valuesObject override here — they're static strings with no ArgoCD-level
+# templating need, so there's no reason to split them across two files.
+# (valuesObject only earns its keep for things that genuinely need
+# ArgoCD's own Go-template syntax, like '{{name}}' in the spoke
+# ApplicationSet's helm.parameters — see
+# argocd/spokes/infra/30-kube-prometheus-stack.yaml.)
+#
+# remote_write receiver is enabled in that values file so every spoke's
+# Prometheus Agent (argocd/spokes/infra/30-kube-prometheus-stack.yaml) can
+# push samples in over the Cluster Mesh global "monitoring-hub-prometheus"
+# Service.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub-observability
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: "86.3.2"   # keep in sync with the spoke Application
+      helm:
+        releaseName: kube-prometheus-stack
+        valueFiles:
+          - $values/platform/values/hub/kube-prometheus-stack.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

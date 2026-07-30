@@ -1,0 +1,72 @@
+# platform/values/base/otel-operator.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Values for: open-telemetry/opentelemetry-operator  (chart >= 0.64.2)
+#
+# Shared across every deployment tier. Consumed by BOTH:
+#   - argocd/hub/20-opentelemetry-operator.yaml            (hub)
+#   - argocd/spokes/infra/30-opentelemetry-operator.yaml   (every spoke)
+#
+# PROMOTED here from platform/values/spoke/otel-operator.yaml as of the
+# hub/spoke observability re-split — hub now also runs the OTel aggregator
+# (an OpenTelemetryCollector CR), so hub needs this Operator installed too,
+# with identical config. Per this repo's base+tier convention
+# (argocd/README.md#hub-vs-spoke-values), tier-identical config belongs
+# here, not duplicated per tier.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Manager / Operator ────────────────────────────────────────────────────────
+manager:
+  image:
+    repository: ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator
+    tag: ""    # uses Chart appVersion by default
+
+  # Required — the default collector image the operator uses when mode/image is
+  # not explicitly set in an OpenTelemetryCollector CR.
+  # Our CRs don't set an image (they rely on the operator config pipeline),
+  # but this field must be non-empty or the chart refuses to install.
+  collectorImage:
+    repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  # Leader election — keep true for HA; set false on single-node dev clusters.
+  leaderElection:
+    enabled: true
+
+  # featureGates is a comma-separated STRING (not an array).
+  # Example: "+operator.autoinstrumentation.go,+operator.autoinstrumentation.nginx"
+  # Leave empty to use defaults (Python instrumentation works without any gates).
+  # Note: from chart >= 0.72.1 prefer featureGatesMap over featureGates.
+  featureGates: ""
+
+# ── Admission webhook ─────────────────────────────────────────────────────────
+admissionWebhooks:
+  create: true
+  # Ignore = pods still start even if the operator webhook is temporarily down.
+  failurePolicy: Ignore
+
+  certManager:
+    # Set true if cert-manager is installed in the cluster (recommended for prod).
+    enabled: false
+
+  autoGenerateCert:
+    enabled: true
+    recreate: true
+
+# ── CRD installation ──────────────────────────────────────────────────────────
+crds:
+  create: true
+
+# ── Replica count ─────────────────────────────────────────────────────────────
+replicaCount: 1
+
+# ── Scheduling ────────────────────────────────────────────────────────────────
+tolerations: []
+affinity: {}
+nodeSelector: {}

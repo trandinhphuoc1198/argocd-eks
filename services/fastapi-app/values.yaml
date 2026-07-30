@@ -1,0 +1,157 @@
+replicaCount: 1
+
+image:
+  repository: gintaku98/k8s_fastapi
+  tag: e85c48dfcdd006ef694d69fe99b1715f9594d175
+  pullPolicy: IfNotPresent
+
+nameOverride: "fastapi-app"
+fullnameOverride: "fastapi-app"
+
+containerPort: 8000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+httpRoute:
+  enabled: true
+  hostname: "fastapi.phuoctd6.shop"
+  gatewayName: spoke-gateway
+  gatewayNamespace: gateway-system
+  listenerName: fastapi-https
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 126Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+keda:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+
+  # How often KEDA queries Prometheus (seconds)
+  pollingInterval: 30
+  # How long to wait after last trigger fires before scaling in (seconds)
+  cooldownPeriod: 60
+
+  prometheus:
+    # UPDATED as of the hub/spoke observability re-split: this spoke's own
+    # Prometheus is now Agent mode (platform/values/spoke/kube-prometheus-stack.yaml)
+    # and has NO query API — KEDA's prometheus trigger MUST query a real
+    # Prometheus, so this now points at hub's central one instead, reached
+    # over the Cluster Mesh global "monitoring-hub-prometheus" Service
+    # (deliberately renamed from "monitoring-prometheus" to avoid colliding
+    # with this spoke's own local Agent-mode Service of that name — see
+    # platform/values/hub/kube-prometheus-stack.yaml's header comment).
+    #
+    # This is a real new coupling worth knowing about: fastapi-app's
+    # autoscaling now has a hard runtime dependency on hub being reachable.
+    # If hub is ever unreachable, KEDA's queries fail and (per
+    # ignoreNullValues below) the trigger is simply ignored — it does NOT
+    # scale to zero or to max, it just stops contributing to the scaling
+    # decision until hub comes back.
+    serverAddress: http://monitoring-hub-prometheus.monitoring.svc.cluster.local:9090/
+
+  # ── Scale-out / scale-in behaviour ─────────────────────────────────────────
+  scaleUp:
+    stabilizationWindowSeconds: 30   # react within 1 m of sustained load
+    maxPodsPerStep: 2                 # add at most 2 pods per step
+    periodSeconds: 60
+  scaleDown:
+    stabilizationWindowSeconds: 30  # wait 5 m of low load before removing pods
+    maxPodsPerStep: 2                 # remove 1 pod at a time
+    periodSeconds: 60
+
+  # ── Trigger thresholds ──────────────────────────────────────────────────────
+  triggers:
+    # Scale out when per-pod RPS exceeds this value
+    requestRate:
+      threshold: "10"
+
+    # Scale out when P95 latency (seconds) exceeds this value
+    p95Latency:
+      threshold: "0.5"
+
+database:
+  createSecret: true
+  existingSecret: ""
+  secretName: ""
+  writehost: "pg-pooler-rw.db.svc.cluster.local"
+  readhost: "pg-pooler-ro.db.svc.cluster.local"
+  port: "5432"
+  user: "appuser"
+  password: "changeme"
+  name: "TestDb"
+
+podAnnotations: {}
+podLabels: {}
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Security context for pod and containers
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+probes:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 3
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /metrics
+  additionalLabels:
+    release: kube-prometheus-stack
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OpenTelemetry auto-instrumentation
+#
+# When enabled: true, the pod gets a single annotation that tells the OTel
+# Operator webhook to inject the Python SDK init-container at admission time.
+# The operator then sets ALL OTEL_* env vars automatically from the
+# Instrumentation CR defined in charts/otel — nothing else is needed here.
+#
+# Prerequisites:
+#   - OTel Operator installed  (argocd/spokes/infra/30-opentelemetry-operator.yaml)
+#   - OTel chart deployed      (platform/charts/otel/, namespace: observability,
+#     spoke overlay = DaemonSet only, forwards to hub's aggregator)
+# ─────────────────────────────────────────────────────────────────────────────
+opentelemetry:
+  # Master switch — set false to disable injection with no other changes needed.
+  enabled: true
+
+  # Namespace where the Instrumentation CR lives.
+  # Becomes the prefix in the annotation: "<instrumentationNamespace>/fastapi-instrumentation"
+  # Must match global.namespace in charts/otel/values.yaml.
+  instrumentationNamespace: "observability"

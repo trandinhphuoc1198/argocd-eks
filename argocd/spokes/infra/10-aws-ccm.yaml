@@ -1,0 +1,46 @@
+# Wave 10 — day-0 bootstrap layer. Provides route-table sync for Cilium's
+# native routing mode; no dependency on anything else in this repo.
+#
+# base + overlay: platform/values/base/aws-ccm.yaml holds config shared by
+# every tier; platform/values/spoke/aws-ccm.yaml is this tier's override
+# (empty today). See argocd/README.md#hub-vs-spoke-values.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: aws-cloud-controller-manager
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'aws-cloud-controller-manager-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "10"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://kubernetes.github.io/cloud-provider-aws
+          chart: aws-cloud-controller-manager
+          targetRevision: "0.0.11"
+          helm:
+            valueFiles:
+              - $values/platform/values/base/aws-ccm.yaml
+              - $values/platform/values/spoke/aws-ccm.yaml
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

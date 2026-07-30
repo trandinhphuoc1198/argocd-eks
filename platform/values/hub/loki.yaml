@@ -1,0 +1,119 @@
+# platform/values/hub/loki.yaml
+#
+# MOVED FROM platform/values/spoke/loki.yaml. Loki now runs only on hub —
+# spokes forward logs to hub's OTel aggregator (via the DaemonSet's
+# loadbalancing exporter, over Cluster Mesh), and only the hub-side
+# aggregator talks to Loki directly (same-cluster now, plain in-cluster
+# DNS — no Cilium global annotation needed here).
+#
+# Content is unchanged from the old spoke file below.
+
+loki:
+  
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: s3
+    bucketNames:
+      chunks: log-s3-phuoctd6          # ← change to your bucket name
+      ruler: log-s3-phuoctd6            # ← change to your bucket name
+      admin: log-s3-phuoctd6            # ← change to your bucket name (can be same)
+    s3:
+      endpoint: ""                 # leave empty for AWS S3
+      region: ap-northeast-1       # ← change to your region
+      s3ForcePathStyle: false      # set true for MinIO / path-style S3
+      insecure: false              # set true for MinIO without TLS
+  schemaConfig:
+    configs:
+      - from: "2024-04-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  pattern_ingester:
+    enabled: true
+  limits_config:
+    allow_structured_metadata: true
+    volume_enabled: true
+  ruler:
+    enable_api: true
+
+minio:
+  enabled: false
+      
+deploymentMode: Monolithic
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 200Mi         
+    limits:
+      cpu: 500m
+      memory: 200Mi
+
+
+# Zero out replica counts of other deployment modes
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+ingester:
+  replicas: 0
+querier:
+  replicas: 0
+queryFrontend:
+  replicas: 0
+queryScheduler:
+  replicas: 0
+distributor:
+  replicas: 0
+compactor:
+  replicas: 0
+indexGateway:
+  replicas: 0
+bloomPlanner:
+  replicas: 0
+bloomBuilder:
+  replicas: 0
+bloomGateway:
+  replicas: 0
+lokiCanary:
+  kind: Deployment
+
+chunksCache:
+  enabled: true
+  allocatedMemory: 256      # in MB — this drives the -m flag passed to memcached
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi         # set slightly above allocatedMemory to give memcached headroom
+    limits:
+      cpu: 500m
+      memory: 64Mi
+
+resultsCache:
+  enabled: true             # note: true not "enabled" (your current value is a string bug)
+  allocatedMemory: 256
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 64Mi
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels: {}        # extra labels for the ServiceMonitor
+    interval: 30s
+    scrapeTimeout: 10s

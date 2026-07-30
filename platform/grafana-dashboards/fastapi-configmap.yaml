@@ -1,0 +1,287 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-fastapi
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"          # picked up by the kube-prometheus-stack sidecar
+data:
+  fastapi-app.json: |-
+    {
+      "title": "FastAPI App",
+      "uid": "fastapi-app",
+      "schemaVersion": 38,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "tags": ["fastapi", "keda", "application"],
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "type": "constant",
+            "query": "fastapi",
+            "current": { "value": "fastapi" },
+            "hide": 2
+          }
+        ]
+      },
+      "panels": [
+
+        {
+          "id": 1,
+          "title": "Request Rate (RPS) — all pods",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": { "mode": "palette-classic" },
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            }
+          },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\"}[1m]))",
+              "legendFormat": "total RPS"
+            },
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\", status_code=~\"5..\"}[1m]))",
+              "legendFormat": "5xx RPS"
+            },
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\", status_code=~\"4..\"}[1m]))",
+              "legendFormat": "4xx RPS"
+            }
+          ]
+        },
+
+        {
+          "id": 2,
+          "title": "KEDA Scale Trigger — per-pod RPS vs threshold (10)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "reqps", "custom": { "lineWidth": 2, "fillOpacity": 8 } },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "threshold" },
+                "properties": [
+                  { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
+                  { "id": "custom.lineStyle", "value": { "fill": "dash" } }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\"}[1m])) / max(kube_deployment_status_replicas_ready{namespace=\"$namespace\", deployment=\"fastapi-app\"})",
+              "legendFormat": "per-pod RPS"
+            },
+            {
+              "expr": "vector(10)",
+              "legendFormat": "threshold"
+            }
+          ]
+        },
+
+        {
+          "id": 3,
+          "title": "P50 / P95 / P99 Latency",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum by(le)(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[2m])))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum by(le)(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[2m])))",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by(le)(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[2m])))",
+              "legendFormat": "p99"
+            }
+          ]
+        },
+
+        {
+          "id": 4,
+          "title": "KEDA P95 Latency Trigger vs threshold (0.5 s)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "s", "custom": { "lineWidth": 2 } },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "threshold" },
+                "properties": [
+                  { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
+                  { "id": "custom.lineStyle", "value": { "fill": "dash" } }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by(le)(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[2m])))",
+              "legendFormat": "p95 latency"
+            },
+            {
+              "expr": "vector(0.5)",
+              "legendFormat": "threshold"
+            }
+          ]
+        },
+
+        {
+          "id": 5,
+          "title": "HTTP Error Rate %",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "custom": { "lineWidth": 2, "fillOpacity": 15 }
+            }
+          },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(http_requests_total{namespace=\"$namespace\", status_code=~\"5..\"}[2m])) / sum(rate(http_requests_total{namespace=\"$namespace\"}[2m]))",
+              "legendFormat": "5xx error %"
+            }
+          ]
+        },
+
+        {
+          "id": 6,
+          "title": "Replica Count — actual vs KEDA min/max",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 6 } },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "min replicas" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }, { "id": "custom.lineStyle", "value": { "fill": "dash" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "max replicas" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "custom.lineStyle", "value": { "fill": "dash" } }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "expr": "kube_deployment_status_replicas_ready{namespace=\"$namespace\", deployment=\"fastapi-app\"}",
+              "legendFormat": "ready replicas"
+            },
+            {
+              "expr": "kube_deployment_spec_replicas{namespace=\"$namespace\", deployment=\"fastapi-app\"}",
+              "legendFormat": "desired replicas"
+            },
+            {
+              "expr": "vector(1)",
+              "legendFormat": "min replicas"
+            },
+            {
+              "expr": "vector(5)",
+              "legendFormat": "max replicas"
+            }
+          ]
+        },
+
+        {
+          "id": 7,
+          "title": "Pod CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 23, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "cores", "custom": { "lineWidth": 1, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container=\"fastapi-app\"}[2m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 8,
+          "title": "Pod Memory Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 23, "w": 12, "h": 7 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": { "unit": "bytes", "custom": { "lineWidth": 1, "fillOpacity": 8 } }
+          },
+          "targets": [
+            {
+              "expr": "sum by(pod)(container_memory_working_set_bytes{namespace=\"$namespace\", container=\"fastapi-app\"})",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+
+        {
+          "id": 9,
+          "title": "Stat: Current RPS",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 30, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "color": "yellow", "value": 8 }, { "color": "red", "value": 10 }] } } },
+          "targets": [{ "expr": "sum(rate(http_requests_total{namespace=\"$namespace\"}[1m]))", "legendFormat": "" }]
+        },
+        {
+          "id": 10,
+          "title": "Stat: P95 Latency",
+          "type": "stat",
+          "gridPos": { "x": 4, "y": 30, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 0.5 }] } } },
+          "targets": [{ "expr": "histogram_quantile(0.95, sum by(le)(rate(http_request_duration_seconds_bucket{namespace=\"$namespace\"}[2m])))", "legendFormat": "" }]
+        },
+        {
+          "id": 11,
+          "title": "Stat: Ready Pods",
+          "type": "stat",
+          "gridPos": { "x": 8, "y": 30, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] } } },
+          "targets": [{ "expr": "kube_deployment_status_replicas_ready{namespace=\"$namespace\", deployment=\"fastapi-app\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 12,
+          "title": "Stat: 5xx Error Rate",
+          "type": "stat",
+          "gridPos": { "x": 12, "y": 30, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] } } },
+          "targets": [{ "expr": "100 * sum(rate(http_requests_total{namespace=\"$namespace\", status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"$namespace\"}[5m]))", "legendFormat": "" }]
+        }
+
+      ]
+    }

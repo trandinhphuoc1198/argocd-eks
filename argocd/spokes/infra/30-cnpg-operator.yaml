@@ -1,0 +1,44 @@
+# Wave 30 — CloudNativePG operator. Provides the 'Cluster' and 'Pooler'
+# CRDs that the postgresql workload (wave "50") depends on. Release name
+# kept as 'cnpg' to match deploy.sh.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cnpg-operator
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'cnpg-operator-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "30"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://cloudnative-pg.github.io/charts
+          chart: cloudnative-pg
+          targetRevision: "0.28.3"
+          helm:
+            releaseName: cnpg
+            valueFiles:
+              - $values/platform/values/spoke/cnpg.yaml
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: cnpg-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

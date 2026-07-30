@@ -1,0 +1,30 @@
+# platform/values/spoke/otel.yaml
+#
+# Spoke-tier overlay. Spoke runs ONLY the node-level DaemonSet (OTLP
+# receiver + filelog + forward). Tail-sampling/redaction/export to
+# Tempo/Loki now happens once, centrally, on hub.
+collectorDaemonSet:
+  enabled: true
+
+collectorDeployment:
+  enabled: false
+
+# Still required on spoke even with no local aggregator: the DaemonSet's
+# loadbalancing exporters resolve THIS same name
+# ("otel-collector-agg-collector-mesh.observability.svc.cluster.local").
+# Locally it has zero backends (no aggregator pods here) — Cilium Cluster
+# Mesh fills in hub's real pod IPs because hub's copy of this same-named
+# Service is also marked global+shared.
+globalService:
+  enabled: true
+
+# No local aggregator, so nothing here talks to Tempo/Loki directly —
+# disable to avoid rendering a dangling/duplicate Grafana datasource
+# ConfigMap on a cluster with no Grafana to consume it.
+backends:
+  tempo:
+    enabled: false
+  loki:
+    enabled: false
+  debug:
+    enabled: false

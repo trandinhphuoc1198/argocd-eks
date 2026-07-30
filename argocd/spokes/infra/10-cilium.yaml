@@ -1,0 +1,71 @@
+# Wave 10 — day-0 bootstrap layer (with 10-aws-ccm.yaml). Cilium is
+# already running on each spoke (installed by cloud-init at node boot).
+# This ApplicationSet takes over as the source of truth going forward —
+# same chart version and values deploy.sh already used, so the first sync
+# per spoke should be a no-op upgrade, not a CNI restart.
+#
+# base + overlay: platform/values/base/cilium.yaml holds config shared by
+# every tier; platform/values/spoke/cilium.yaml is this tier's override
+# (k8sServiceHost, Hubble UI hostname). See argocd/README.md#hub-vs-spoke-values.
+#
+# Depends on 00-gateway-api-crds.yaml (wave "00") for its Gateway API
+# controller to function.
+#
+# valuesObject.cluster: Cluster Mesh identity is the one Cilium value that
+# genuinely differs PER SPOKE (not just hub-vs-spoke like everything else
+# in the tier file), so it can't live in the shared spoke/cilium.yaml. It's
+# templated straight from the cluster Secret's labels instead — "{{name}}"
+# is the cluster-name label (already used elsewhere in this file), and
+# "{{metadata.labels.cluster-mesh-id}}" is the static id assigned per spoke
+# in argocd/clusters/<name>.yaml. See that file's header comment for the
+# id-registry note.
+#
+# Do NOT flip prune to true on this one: pruning Cilium = losing the CNI =
+# losing that spoke's network.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cilium
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'cilium-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "10"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      sources:
+        - repoURL: https://helm.cilium.io/
+          chart: cilium
+          targetRevision: "1.20.0-rc.1"
+          helm:
+            releaseName: cilium
+            valueFiles:
+              - $values/platform/values/base/cilium.yaml
+              - $values/platform/values/spoke/cilium.yaml
+            parameters:
+              - name: cluster.name
+                value: '{{name}}'
+              - name: cluster.id
+                value: '{{metadata.labels.cluster-mesh-id}}'
+        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{server}}'
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: false      # never let an auto-prune rip out the CNI
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

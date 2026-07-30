@@ -1,0 +1,39 @@
+# root-apps/root-spokes.yaml
+#
+# App-of-apps for everything that gets fanned out to every registered SPOKE
+# cluster: platform infra (CNI, storage, Gateway API, observability,
+# operators) and application workloads (postgresql, fastapi-app).
+#
+# Every file under argocd/spokes/ is an ApplicationSet using the "clusters"
+# generator (selector: role=spoke), so this Application just needs to apply
+# those ApplicationSet manifests once on the hub — the ApplicationSet
+# controller then creates one Application per spoke per file automatically
+# as new clusters register (see argocd/clusters/).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-spokes
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  source:
+    repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    targetRevision: main
+    path: argocd/spokes
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

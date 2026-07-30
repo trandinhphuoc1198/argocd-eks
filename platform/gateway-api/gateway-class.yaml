@@ -1,0 +1,38 @@
+# platform/gateway-api/gateway-class.yaml
+#
+# Replaces Cilium's auto-created "cilium" GatewayClass with an explicitly
+# managed one so we can attach parametersRef for access-log config below.
+# Requires Cilium >= 1.18.12 / 1.19.6 (this repo pins 1.20.0-rc.1 — OK).
+#
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: cilium
+spec:
+  controllerName: io.cilium/gateway-controller
+  parametersRef:
+    group: cilium.io
+    kind: CiliumGatewayClassConfig
+    name: gateway-access-logs
+    namespace: gateway-system
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumGatewayClassConfig
+metadata:
+  name: gateway-access-logs
+  namespace: gateway-system
+spec:
+  telemetry:
+    accessLogs:
+      - format: JSON
+        targets:
+          - HTTP
+        json:
+          start_time: "%START_TIME%"
+          gateway_namespace: "%CILIUM_GATEWAY_NAMESPACE%"
+          gateway_name: "%CILIUM_GATEWAY_NAME%"
+          method: "%REQUEST_HEADER(:METHOD)%"
+          path: "%REQUEST_HEADER(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+          status: "%RESPONSE_CODE%"
+          duration_ms: "%DURATION%"
+          client_ip: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"

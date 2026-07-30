@@ -1,0 +1,14 @@
+# platform/values/spoke/cilium.yaml
+#
+# Spoke-tier overlay, layered on top of platform/values/base/cilium.yaml by
+# argocd/spokes/infra/00-cilium.yaml. Same chart version cloud-init already
+# used on fresh spoke nodes, so the first ArgoCD sync per spoke should be a
+# no-op upgrade, not a CNI restart.
+#
+
+# k8sServiceHost/k8sServicePort are filled in at node-bootstrap time by
+# cloud-init-control-plane.sh (--set flags) for the very first install; the
+# value below is what's committed as the steady-state default once ArgoCD
+# takes over as source of truth.
+k8sServiceHost: "10.1.11.10"
+k8sServicePort: "6443"

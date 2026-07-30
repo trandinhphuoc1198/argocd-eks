@@ -1,0 +1,113 @@
+# ──────────────────────────────────────────────
+# PostgreSQL Chart - values.yaml
+# Deployed via CloudNativePG operator
+# Namespace: db
+# ──────────────────────────────────────────────
+
+cluster:
+  name: pg-cluster
+
+  postgresVersion: 16
+
+  # 1 primary + 1 replica = 2 instances total
+  instances: 2
+
+  database: TestDb
+  owner: appuser
+
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.3
+
+  storage:
+    size: 1Gi
+    storageClass: ebs-csi
+
+  walStorage:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 500Mi
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+      maintenance_work_mem: "64MB"
+      wal_level: "logical"
+      max_wal_senders: "10"
+      max_replication_slots: "10"
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: preferred
+
+  nodeMaintenanceWindow:
+    inProgress: false
+    reusePVC: true
+
+# ──────────────────────────────────────────────
+# PgBouncer Poolers
+#
+# poolMode: transaction  - best for FastAPI async (asyncpg / SQLAlchemy async)
+#
+# RW pooler → primary   (WRITE_DB_URL)
+# RO pooler → replicas  (READ_DB_URL)  ← load-balanced across all replicas
+# ──────────────────────────────────────────────
+pooler:
+  # Shared setting - both poolers use transaction mode
+  poolMode: transaction
+
+  rw:
+    enabled: true
+    ssl: disable
+    name: pg-pooler-rw
+    instances: 2            # 2 PgBouncer pods for HA on the write path
+    maxClientConn: 200      # max simultaneous client connections
+    defaultPoolSize: 20     # server connections per user/db pair
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  ro:
+    enabled: true
+    ssl: disable
+    name: pg-pooler-ro
+    instances: 2            # 2 PgBouncer pods for HA on the read path
+    maxClientConn: 400      # reads are higher volume - allow more clients
+    defaultPoolSize: 30     # more server-side connections for read fan-out
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+# ──────────────────────────────────────────────
+# Credentials
+# ──────────────────────────────────────────────
+secret:
+  name: pg-app-secret
+  # Base64-encoded. Override at deploy time - never commit plain-text passwords.
+  # Generate: echo -n 'yourpassword' | base64
+  username: YXBwdXNlcg==   # appuser
+  password: Y2hhbmdlbWU=   # changeme  ← CHANGE THIS
+
+# ──────────────────────────────────────────────
+# Monitoring
+# ──────────────────────────────────────────────
+monitoring:
+  enabled: true
+  prometheusRelease: kube-prometheus-stack
+  interval: 30s
+  scrapeTimeout: 10s

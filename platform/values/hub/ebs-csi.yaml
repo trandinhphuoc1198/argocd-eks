@@ -1,0 +1,46 @@
+# platform/values/hub/ebs-csi.yaml
+#
+# HUB ONLY. Hub previously had no PVC workloads, so no EBS CSI driver.
+# Now that Prometheus, Loki, Tempo, and Grafana all run here with
+# persistence, hub needs the 'ebs-csi' StorageClass too.
+#
+# Content deliberately mirrors platform/values/spoke/ebs-csi.yaml — kept as
+# a separate per-tier file (rather than promoted to platform/values/base/)
+# to match this repo's existing convention of one file per tier under
+# argocd/{hub,spokes/infra}/, even when the values happen to be identical
+# today. Promote to base/ if/when they need to diverge is unlikely, or
+# converge intentionally later.
+storageClasses:
+  - name: ebs-csi
+    volumeBindingMode: WaitForFirstConsumer
+    reclaimPolicy: Delete
+    parameters:
+      type: gp3
+      encrypted: "true"
+
+controller:
+  replicaCount: 2
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app: ebs-csi-controller
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+node:
+  priorityClassName: system-node-critical
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

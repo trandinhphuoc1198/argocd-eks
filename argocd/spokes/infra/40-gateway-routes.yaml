@@ -1,0 +1,41 @@
+# Wave 40 — plain manifests (not a Helm chart), same pattern as
+# 40-cilium-servicemonitors.yaml. Deploys the HTTPRoutes for services this
+# repo doesn't own the chart for (Grafana, Prometheus, Alertmanager,
+# Hubble UI). fastapi-app owns its own HTTPRoute inside its chart instead
+# (services/fastapi-app/templates/httproute.yaml, wave "60").
+#
+# Needs the Gateway's listeners + TLS certs (30-gateway.yaml, wave "30")
+# and the backend Services from kube-prometheus-stack (wave "30").
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gateway-routes
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'gateway-routes-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "40"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      source:
+        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        targetRevision: main
+        path: platform/gateway-routes/spoke
+      destination:
+        server: '{{server}}'
+        namespace: gateway-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

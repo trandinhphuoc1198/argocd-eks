@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitoring-hub-prometheus
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/component: hub-prometheus-mesh-placeholder
+  annotations:
+    service.cilium.io/global: "true"
+    service.cilium.io/shared: "true"
+spec:
+  type: ClusterIP
+  # No selector — no real local backend. Cilium mesh injects hub's pod as
+  # a backend for this frontend once the mesh-shared match succeeds.
+  ports:
+    # Name matched to hub's real Service port name (http-web) — cross-
+    # cluster backend merge matches by port name, not just number.
+    - name: http-web
+      port: 9090
+      protocol: TCP

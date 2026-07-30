@@ -1,0 +1,16 @@
+apiVersion: v2
+name: otel
+description: >
+  OpenTelemetry Operator stack — Collector (DaemonSet gateway + Deployment
+  aggregator) and Instrumentation CR for automatic FastAPI tracing.
+type: application
+version: 0.1.0
+appVersion: "0.101.0"
+
+keywords:
+  - opentelemetry
+  - tracing
+  - observability
+
+maintainers:
+  - name: platform-team

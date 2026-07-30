@@ -1,0 +1,28 @@
+# platform/values/hub/cilium.yaml
+#
+# Hub-tier overlay, layered on top of platform/values/base/cilium.yaml by
+# argocd/hub/00-cilium.yaml. Cilium on the hub is installed by Terraform
+# (not this repo) — this file is what ArgoCD adopts against on takeover.
+# Before enabling automated sync, diff `helm get values cilium -n
+# kube-system` on the live hub against base + this file merged.
+#
+
+# Must match pod_cidr in every live/*/envs/*/terraform.tfvars. Tells
+# Cilium which destination IPs are "in-cluster" (route natively, never
+# masquerade) vs external (masquerade via bpf.masquerade below).
+
+k8sServiceHost: "10.0.11.10"
+k8sServicePort: "6443"
+
+# ── Cluster Mesh identity ────────────────────────────────────────────────
+# Every meshed cluster needs a globally-unique name + numeric id (1-255).
+# Hub is hardcoded here since there's only ever one hub. Spokes get theirs
+# templated per-cluster in argocd/spokes/infra/10-cilium.yaml from the
+# cluster-mesh-id label set in argocd/clusters/<name>.yaml — see
+# bootstrap/README.md for the id registry (which ids are taken).
+#
+# id "1" is reserved for hub; spokes start at "2".
+cluster:
+  name: hub
+  id: 1
+

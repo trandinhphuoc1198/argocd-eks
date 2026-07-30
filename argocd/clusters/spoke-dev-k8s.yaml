@@ -1,0 +1,53 @@
+# argocd/clusters/spoke-dev.yaml
+#
+# Registers a spoke cluster with ArgoCD. ESO watches AWS Secrets Manager
+# key "argocd-clusters/spoke-dev" (populated by register-with-hub.sh.tpl,
+# which now pushes {name, role, server, token, caData}) and materializes it
+# into the argocd-namespace Secret that ArgoCD's cluster list reads.
+#
+# Both "cluster-name" and "cluster-role" labels are templated straight from
+# the pushed secret's fields, so they can never drift from what the spoke
+# actually registered as. "cluster-role" is what every ApplicationSet's
+# cluster generator selector matches on (spokes/** selects cluster-role:
+# workload); "cluster-name" is what argocd-register-spoke.yml now queries
+# directly to confirm a specific spoke registered successfully.
+#
+# "cluster-mesh-id" and "cluster-mesh-ip" are static, manually-assigned
+# labels (NOT sourced from the AWS secret) — Cilium Cluster Mesh's numeric
+# cluster id (1-255, unique across every meshed cluster) and the stable
+# control-plane node IP this spoke exposes clustermesh-apiserver's NodePort
+# on (same address used as this spoke's k8sServiceHost). Both are read by
+# .github/workflows/clustermesh-sync.yml, which regenerates
+# platform/values/base/cilium.yaml's clustermesh.config.clusters list from
+# every argocd/clusters/*.yaml file automatically — this is the ONLY
+# manual edit needed when onboarding a new spoke into the mesh; everything
+# downstream of it (the peer list, and this spoke's own cluster.name/id in
+# argocd/spokes/infra/10-cilium.yaml) is templated/generated, not hand-written.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: spoke-dev
+  namespace: argocd
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    name: argocd-clusters-store
+    kind: ClusterSecretStore
+  target:
+    name: spoke-dev
+    template:
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: cluster
+          cluster-name: "{{ .name }}"
+          cluster-role: "{{ .role }}"
+          cluster-mesh-id: "2"
+          cluster-mesh-ip: "10.1.11.10"
+      data:
+        name: "{{ .name }}"
+        server: "{{ .server }}"
+        config: |
+          {"bearerToken":"{{ .token }}","tlsClientConfig":{"insecure":false,"caData":"{{ .caData }}"}}
+  dataFrom:
+    - extract:
+        key: argocd-clusters/spoke-dev-k8s

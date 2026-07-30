@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-hub-observability
+  namespace: argocd
+spec:
+    # Deliberately split out from platform-hub (ArgoCD's own management
+    # plane: its Helm release, ESO, spoke registration, node-level infra)
+    # rather than folded into it. platform-hub's whole reason for existing
+    # is to stay narrowly scoped to resources ArgoCD's own operation
+    # depends on, so that a misconfigured selector elsewhere can never
+    # touch it. The observability backend is a much heavier, more
+    # frequently-changing, more public-facing workload than any of that —
+    # giving it its own project means it can grow (more charts, more
+    # storage, more source repos) without widening platform-hub's blast
+    # radius, and a mistake here can't touch ArgoCD's own control plane.
+  description: >
+    Fleet-wide observability backend, hub-only: kube-prometheus-stack
+    Loki, Tempo, the OTel Grafana dashboard ConfigMaps, the
+    Cilium/Hubble ServiceMonitors, the HTTPRoutes
+    that expose Grafana/Prometheus/Alertmanager, EBS CSI driver
+
+  sourceRepos:
+    - "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
+    - "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    - "https://prometheus-community.github.io/helm-charts"
+    - "https://grafana.github.io/helm-charts"
+    - "https://grafana-community.github.io/helm-charts"
+    - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+    - server: https://kubernetes.default.svc
+      namespace: observability
+    # aws-ebs-csi-driver and the Cilium/Hubble ServiceMonitors install into
+    # kube-system, same as their spoke counterparts (platform-infra
+    # project). Listed here too, scoped to THIS project's own
+    # Applications only — platform-hub also lists kube-system separately
+    # for its own, different Applications (Cilium, AWS CCM, cluster
+    # autoscaler). Namespace overlap between projects is fine; each
+    # Application declares exactly one project and is bound by that
+    # project's rules alone.
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
+
+  # Same posture as platform-infra (the spoke equivalent): these charts
+  # legitimately own CRDs, StorageClasses, and ClusterRoles, so cluster
+  # resources are wide open here — the namespace whitelist above is the
+  # real boundary for this project.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
