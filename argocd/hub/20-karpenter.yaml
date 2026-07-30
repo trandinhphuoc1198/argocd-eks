@@ -1,0 +1,41 @@
+# Wave 20 — needs Cilium's pod networking (wave "10") up first. Fresh
+# install on hub, not an adoption of a Terraform-managed release.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  sources:
+    - repoURL: oci://public.ecr.aws/karpenter/karpenter
+      chart: karpenter
+      targetRevision: "1.14.0"
+      helm:
+        releaseName: karpenter
+        valueFiles:
+          - $values/platform/values/base/karpenter.yaml
+          - $values/platform/values/hub/karpenter.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

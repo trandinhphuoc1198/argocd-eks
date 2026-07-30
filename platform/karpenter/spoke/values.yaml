@@ -1,0 +1,23 @@
+# Overridden per-cluster via ApplicationSet helm.parameters — see
+# argocd/spokes/infra/21-karpenter-nodepool.yaml. Left blank here so a
+# bare `helm template` with no overrides fails loudly instead of
+# silently deploying under a wrong/empty cluster identity.
+clusterName: ""
+
+instanceProfile: ""   # empty = derive as "<clusterName>-worker-profile"
+
+ami:
+  id: ami-0734aa6b26f10d25a
+
+rootDevice: /dev/xvda
+
+instanceTypes:
+  - c7i-flex.large
+  - m7i-flex.large
+
+limits:
+  cpu: "15"
+  memory: 30Gi
+
+disruption:
+  consolidateAfter: 8m

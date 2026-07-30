@@ -1,0 +1,56 @@
+# platform/values/base/karpenter.yaml
+#
+# Shared across every tier. Consumed by BOTH:
+#   - argocd/hub/20-karpenter.yaml            (hub)
+#   - argocd/spokes/infra/20-karpenter.yaml   (every spoke)
+#
+# NO IRSA in this repo — the controller pod authenticates via the
+# underlying EC2 instance's instance-profile role (default AWS SDK
+# credential chain), same pattern cluster-autoscaler used. That means
+# this pod MUST be scheduled onto a node whose instance profile carries
+# Karpenter's controller IAM policy (ec2:RunInstances/CreateFleet/
+# TerminateInstances/CreateTags/Describe*, iam:PassRole scoped to the
+# worker node role, ssm:GetParameter, pricing:GetProducts).
+#
+# TODO(you): attach that policy to the control-plane instance profile
+# (Terraform) before enabling automated sync — controller will
+# CrashLoop/permission-error on every provisioning attempt otherwise.
+
+serviceAccount:
+  create: true
+  # No annotations — no IRSA. Pod picks up credentials from the node's
+  # instance profile via the default AWS SDK chain.
+  annotations: {}
+
+# clusterEndpoint: self-hosted kubeadm cluster (not EKS), so there's no
+# eks:DescribeCluster to auto-discover this. Set explicitly per tier —
+# see platform/values/{hub,spoke}/karpenter.yaml.
+settings:
+  clusterName: ""        # set per tier
+  clusterEndpoint: ""    # set per tier
+  # interruptionQueue intentionally omitted — that's the EC2 Spot/EKS
+  # interruption-notice SQS integration. Leave unset until Spot capacity
+  # is added and the queue is provisioned in Terraform.
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Same reasoning as the old auto-scaler.yaml: pin to control-plane so the
+# pod runs under the instance profile that actually has Karpenter's IAM
+# permissions, and tolerate the control-plane taint.
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+controller:
+  logLevel: info

@@ -1,8 +1,0 @@
-# platform/values/spoke/auto-scaler.yaml
-#
-# Spoke-tier overlay, layered on top of platform/values/base/auto-scaler.yaml
-# by argocd/spokes/infra/01-cluster-autoscaler.yaml.
-autoDiscovery:
-  clusterName: spoke-dev-k8s   # must match ASG tag
-
-awsRegion: ap-northeast-1

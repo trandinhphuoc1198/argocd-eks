@@ -1,0 +1,19 @@
+clusterName: hub-dev-k8s
+
+instanceProfile: "hub-dev-k8s-worker-profile"
+
+ami:
+  id: ami-0734aa6b26f10d25a
+
+rootDevice: /dev/xvda
+
+instanceTypes:
+  - c7i-flex.large
+  - m7i-flex.large
+
+limits:
+  cpu: "15"
+  memory: 30Gi
+
+disruption:
+  consolidateAfter: 8m

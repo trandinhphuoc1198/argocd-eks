@@ -1,0 +1,41 @@
+# Wave 30 — deploys the NodePool + EC2NodeClass, templated per-spoke.
+# Needs Karpenter's own CRDs first (20-karpenter.yaml, wave "20").
+#
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: karpenter-nodepool
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            cluster-role: workload
+  template:
+    metadata:
+      name: 'karpenter-nodepool-{{name}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "30"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: platform-infra
+      source:
+        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        targetRevision: main
+        path: platform/karpenter/spoke
+        helm:
+          releaseName: karpenter-nodepool
+          parameters:
+            - name: clusterName
+              value: '{{name}}'
+      destination:
+        server: '{{server}}'
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

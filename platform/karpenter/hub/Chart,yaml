@@ -1,0 +1,10 @@
+apiVersion: v2
+name: karpenter-hub-nodepool
+description: >
+  Karpenter NodePool + EC2NodeClass for the hub cluster. Hub is singular
+  (unlike spoke), so values are baked directly into this chart's
+  values.yaml rather than templated per-cluster via ApplicationSet
+  parameters — same convention as fullnameOverride in
+  platform/values/hub/kube-prometheus-stack.yaml.
+type: application
+version: 0.1.0

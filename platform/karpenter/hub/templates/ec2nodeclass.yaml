@@ -1,0 +1,38 @@
+{{- $clusterName := required "clusterName must be set" .Values.clusterName }}
+{{- $instanceProfile := required "instanceProfile must be set — see values.yaml TODO" .Values.instanceProfile }}
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: Custom
+  amiSelectorTerms:
+    - id: {{ .Values.ami.id }}
+
+  instanceProfile: {{ $instanceProfile | quote }}
+
+  subnetSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/{{ $clusterName }}: "owned"
+
+  securityGroupSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/{{ $clusterName }}: "owned"
+
+  blockDeviceMappings:
+    - deviceName: {{ .Values.rootDevice }}
+      ebs:
+        volumeSize: 50Gi
+        volumeType: gp3
+        encrypted: true
+
+  # TODO(you): required action — add kubeadm join / cloud-init bootstrap.
+  # Confirm whether hub's worker join script differs from spoke's before
+  # assuming they're identical.
+  userData: |
+    #!/bin/bash
+    # TODO(you): required action — add kubeadm join / cloud-init bootstrap.
+
+  tags:
+    kubernetes.io/cluster/{{ $clusterName }}: "owned"
+    karpenter.sh/managed: "true"

@@ -1,0 +1,8 @@
+apiVersion: v2
+name: karpenter-spoke-nodepool
+description: >
+  Karpenter NodePool + EC2NodeClass for spoke clusters. Templated per-spoke
+  via ArgoCD's ApplicationSet '{{name}}' cluster-generator variable, same
+  pattern as the cilium/otel/kube-prometheus-stack charts in this repo.
+type: application
+version: 0.1.0
