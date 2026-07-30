@@ -32,7 +32,73 @@ spec:
   # (reads its own join token/endpoint at boot rather than baking one in).
   userData: |
     #!/bin/bash
-    # TODO(you): required action — add kubeadm join / cloud-init bootstrap.
+    set -euo pipefail
+    exec > >(tee /var/log/k8s-bootstrap.log) 2>&1
+
+    # ── Resolve Dynamic AWS Identity via IMDSv2 ──────────────────────────────
+    IMDS_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+    AWS_REGION=$(curl -s  -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+    INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+    AZ=$(curl -s          -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone)
+    PROVIDER_ID="aws:///$AZ/$INSTANCE_ID"
+
+    echo "Worker identity discovered: instance=$INSTANCE_ID az=$AZ provider-id=$PROVIDER_ID"
+
+    # ── Poll SSM parameters with 15-Minute Timeout Protection ────────────────
+    echo "Polling SSM for master JSON configuration payload..."
+    MAX_RETRIES=60
+    RETRY_COUNT=0
+
+    while true; do
+      SSM_VALUE=$(aws ssm get-parameter \
+        --name "/spoke-dev/k8s/join_token" \
+        --with-decryption \
+        --region "$AWS_REGION" \
+        --query "Parameter.Value" \
+        --output text 2>/dev/null || echo "failed")
+
+      if [ "$SSM_VALUE" != "placeholder-awaiting-master-initialization" ] \
+        && [ "$SSM_VALUE" != "failed" ] \
+        && [ -n "$SSM_VALUE" ]; then
+        echo "Join metadata successfully synchronized."
+        break
+      fi
+
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+        echo "ERROR: Master token provisioning has timed out. Terminating bootstrap." >&2
+        exit 1
+      fi
+
+      echo "Awaiting control plane convergence (Attempt $RETRY_COUNT/$MAX_RETRIES)..."
+      sleep 15
+    done
+
+    # ── Structure Parsing via JQ ──────────────────────────────────────────────
+    TOKEN=$(echo "$SSM_VALUE" | jq -r .token)
+    CA_HASH=$(echo "$SSM_VALUE" | jq -r .ca_hash)
+    API_ENDPOINT=$(echo "$SSM_VALUE" | jq -r .endpoint)
+
+    echo "Configuration Extracted: endpoint=$API_ENDPOINT token=$TOKEN hash=$CA_HASH"
+
+    cat <<EOF > /tmp/kubeadm-join.yaml
+    apiVersion: kubeadm.k8s.io/v1beta3
+    kind: JoinConfiguration
+    discovery:
+      bootstrapToken:
+        apiServerEndpoint: "$API_ENDPOINT"
+        token: "$TOKEN"
+        caCertHashes:
+          - "$CA_HASH"
+    nodeRegistration:
+      kubeletExtraArgs:
+        cloud-provider: "external"
+        provider-id: "$PROVIDER_ID"
+    EOF
+
+    echo "Executing join commands with configuration profile..."
+    kubeadm join --config /tmp/kubeadm-join.yaml
+    
 
   tags:
     kubernetes.io/cluster/{{ $clusterName }}: "owned"
