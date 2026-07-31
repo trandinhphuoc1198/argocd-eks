@@ -94,6 +94,9 @@ spec:
       kubeletExtraArgs:
         cloud-provider: "external"
         provider-id: "$PROVIDER_ID"
+      taints:
+        - key: "karpenter.sh/unregistered"
+          effect: "NoExecute"
     EOF
 
     echo "Executing join commands with configuration profile..."
