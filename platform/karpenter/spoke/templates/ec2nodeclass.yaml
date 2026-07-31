@@ -102,4 +102,3 @@ spec:
 
   tags:
     kubernetes.io/cluster/{{ $clusterName }}: "owned"
-    karpenter.sh/managed: "true"
