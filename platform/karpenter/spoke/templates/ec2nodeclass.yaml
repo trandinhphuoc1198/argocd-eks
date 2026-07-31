@@ -99,6 +99,6 @@ spec:
     echo "Executing join commands with configuration profile..."
     kubeadm join --config /tmp/kubeadm-join.yaml
     
-
-  tags:
-    kubernetes.io/cluster/{{ $clusterName }}: "owned"
+  # karpenter auto tag this
+  # tags:
+  #   kubernetes.io/cluster/{{ $clusterName }}: "owned"
