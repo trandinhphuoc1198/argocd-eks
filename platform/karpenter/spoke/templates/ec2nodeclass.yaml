@@ -13,7 +13,7 @@ spec:
 
   subnetSelectorTerms:
     - tags:
-        kubernetes.io/cluster/{{ $clusterName }}: "owned"
+        karpenter.sh/discovery: {{ $clusterName }}
 
   securityGroupSelectorTerms:
     - tags:
