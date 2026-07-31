@@ -1,7 +1,10 @@
 apiVersion: karpenter.sh/v1
 kind: NodePool
+metadata:
+  name: default
 spec:
   template:
+    metadata: {}
     spec:
       startupTaints:
         - key: node.cloudprovider.kubernetes.io/uninitialized
@@ -10,7 +13,6 @@ spec:
         - key: node.cilium.io/agent-not-ready
           value: "true"
           effect: NoExecute
-    spec:
       requirements:
         - key: kubernetes.io/arch
           operator: In
