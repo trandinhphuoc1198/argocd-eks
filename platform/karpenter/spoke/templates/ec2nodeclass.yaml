@@ -26,7 +26,7 @@ spec:
   blockDeviceMappings:
     - deviceName: {{ .Values.rootDevice }}
       ebs:
-        volumeSize: 50Gi
+        volumeSize: 20Gi
         volumeType: gp3
         encrypted: true
 
