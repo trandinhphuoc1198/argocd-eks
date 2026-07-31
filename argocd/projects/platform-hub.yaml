@@ -19,6 +19,7 @@ spec:
     - "https://kubernetes.github.io/cloud-provider-aws"
     - "https://github.com/trandinhphuoc1198/argocd-eks.git"
     - "oci://public.ecr.aws/karpenter/karpenter"
+    - "https://kubernetes-sigs.github.io/metrics-server/"
 
   destinations:
     - server: https://kubernetes.default.svc
