@@ -30,7 +30,7 @@ spec:
             releaseName: metrics-server
             valueFiles:
               - $values/platform/values/spoke/metrics-server.yaml
-        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
       destination:

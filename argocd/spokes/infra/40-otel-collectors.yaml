@@ -34,7 +34,7 @@ spec:
     spec:
       project: platform-infra
       sources:
-        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           path: platform/charts/otel
           helm:
@@ -44,7 +44,7 @@ spec:
             parameters:
               - name: global.clusterName
                 value: '{{name}}'
-        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
       destination:

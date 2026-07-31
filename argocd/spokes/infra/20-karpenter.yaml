@@ -1,5 +1,4 @@
-# Wave 20 — needs Cilium's pod networking (wave "10") up first, same
-# dependency depth as the cluster-autoscaler Application it replaces.
+# Wave 20 — needs Cilium's pod networking (wave "10") up first
 # Installs Karpenter's controller + CRDs (NodePool, EC2NodeClass).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -30,7 +29,7 @@ spec:
             valueFiles:
               - $values/platform/values/base/karpenter.yaml
               - $values/platform/values/spoke/karpenter.yaml
-        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
       destination:

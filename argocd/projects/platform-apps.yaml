@@ -10,7 +10,7 @@ spec:
   # Both charts here are local to this repo — no external Helm chart repos
   # needed, unlike platform-infra.
   sourceRepos:
-    - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+    - "https://github.com/trandinhphuoc1198/argocd-eks.git"
 
   destinations:
     - server: "*"

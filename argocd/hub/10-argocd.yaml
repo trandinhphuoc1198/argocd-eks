@@ -22,7 +22,7 @@ spec:
         releaseName: argocd
         valueFiles:
           - $values/platform/values/hub/argocd.yaml
-    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       ref: values
   destination:

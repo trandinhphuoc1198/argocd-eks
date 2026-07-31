@@ -21,7 +21,7 @@ spec:
     spec:
       project: platform-infra
       source:
-        repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
         targetRevision: main
         path: platform/cert-manager
       destination:

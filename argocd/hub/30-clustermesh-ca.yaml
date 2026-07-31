@@ -35,10 +35,10 @@ metadata:
 spec:
   project: platform-hub
   sources:
-    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       path: platform/clustermesh/common
-    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       path: platform/clustermesh/hub
   destination:

@@ -6,7 +6,7 @@
 #
 # NO IRSA in this repo — the controller pod authenticates via the
 # underlying EC2 instance's instance-profile role (default AWS SDK
-# credential chain), same pattern cluster-autoscaler used. That means
+# credential chain). That means
 # this pod MUST be scheduled onto a node whose instance profile carries
 # Karpenter's controller IAM policy (ec2:RunInstances/CreateFleet/
 # TerminateInstances/CreateTags/Describe*, iam:PassRole scoped to the

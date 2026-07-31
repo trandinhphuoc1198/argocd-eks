@@ -34,7 +34,7 @@ spec:
         releaseName: kube-prometheus-stack
         valueFiles:
           - $values/platform/values/hub/kube-prometheus-stack.yaml
-    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       ref: values
   destination:

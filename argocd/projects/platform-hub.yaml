@@ -17,7 +17,7 @@ spec:
     - "https://github.com/kubernetes-sigs/gateway-api.git"
     - "https://helm.cilium.io/"
     - "https://kubernetes.github.io/cloud-provider-aws"
-    - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+    - "https://github.com/trandinhphuoc1198/argocd-eks.git"
     - "oci://public.ecr.aws/karpenter/karpenter"
 
   destinations:

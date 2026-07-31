@@ -31,7 +31,7 @@ spec:
         valueFiles:
           - $values/platform/values/base/cert-manager.yaml
           - $values/platform/values/hub/cert-manager.yaml
-    - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       ref: values
   destination:

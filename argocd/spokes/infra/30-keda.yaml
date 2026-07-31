@@ -28,7 +28,7 @@ spec:
             releaseName: keda
             valueFiles:
               - $values/platform/values/spoke/keda.yaml
-        - repoURL: https://github.com/trandinhphuoc1198/k8s_ArgoCD.git
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
       destination:

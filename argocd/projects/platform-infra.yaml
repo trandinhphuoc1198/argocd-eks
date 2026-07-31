@@ -8,7 +8,7 @@ spec:
     Cluster infrastructure for SPOKE clusters
 
   sourceRepos:
-    - "https://github.com/trandinhphuoc1198/k8s_ArgoCD.git"
+    - "https://github.com/trandinhphuoc1198/argocd-eks.git"
     - "https://github.com/kubernetes-sigs/gateway-api.git"
     - "https://kubernetes.github.io/cloud-provider-aws"
     - "https://helm.cilium.io/"
