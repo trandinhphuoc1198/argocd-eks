@@ -8,6 +8,11 @@ spec:
   amiFamily: Custom
   amiSelectorTerms:
     - id: {{ .Values.ami.id }}
+    
+  metadataOptions:
+    httpEndpoint: enabled
+    httpTokens: required
+    httpPutResponseHopLimit: 2
 
   instanceProfile: {{ $instanceProfile | quote }}
 
