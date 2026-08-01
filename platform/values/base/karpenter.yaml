@@ -45,12 +45,12 @@ resources:
 # Same reasoning as the old auto-scaler.yaml: pin to control-plane so the
 # pod runs under the instance profile that actually has Karpenter's IAM
 # permissions, and tolerate the control-plane taint.
-nodeSelector:
-  node-role.kubernetes.io/control-plane: ""
-tolerations:
-  - key: "node-role.kubernetes.io/control-plane"
-    operator: "Exists"
-    effect: "NoSchedule"
+# nodeSelector:
+#   node-role.kubernetes.io/control-plane: ""
+# tolerations:
+#   - key: "node-role.kubernetes.io/control-plane"
+#     operator: "Exists"
+#     effect: "NoSchedule"
 
 controller:
   logLevel: info
