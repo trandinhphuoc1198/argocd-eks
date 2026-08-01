@@ -22,8 +22,6 @@ storageClasses:
 
 controller:
   replicaCount: 2
-  tolerations:
-    - operator: Exists
   # topologySpreadConstraints:
   #   - maxSkew: 1
   #     topologyKey: kubernetes.io/hostname
