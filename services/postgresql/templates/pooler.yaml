@@ -99,10 +99,14 @@ spec:
       labels:
         app.kubernetes.io/component: pgbouncer-ro
     spec:
+      {{- with .Values.pooler.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.pooler.ro.nodeSelector | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.pooler.tolerations }}
       tolerations:
-        {{- toYaml .Values.pooler.ro.tolerations | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: pgbouncer
           resources:
