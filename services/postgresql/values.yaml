@@ -46,7 +46,13 @@ cluster:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
     podAntiAffinityType: preferred
-
+    nodeSelector:
+      workload-tier: workload
+    tolerations:
+      - key: workload-tier
+        operator: Equal
+        value: workload
+        effect: NoSchedule
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
@@ -60,8 +66,14 @@ cluster:
 # RO pooler → replicas  (READ_DB_URL)  ← load-balanced across all replicas
 # ──────────────────────────────────────────────
 pooler:
-  # Shared setting - both poolers use transaction mode
   poolMode: transaction
+  nodeSelector:
+    workload-tier: workload
+  tolerations:
+    - key: workload-tier
+      operator: Equal
+      value: workload
+      effect: NoSchedule
 
   rw:
     enabled: true

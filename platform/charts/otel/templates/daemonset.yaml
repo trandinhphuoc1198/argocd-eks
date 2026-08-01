@@ -32,6 +32,14 @@ spec:
   mode: daemonset
   priorityClassName: system-node-critical
   serviceAccount: otel-collector
+  {{- with .Values.collectorDaemonSet.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.collectorDaemonSet.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 
   resources:
     {{- toYaml .Values.collectorDaemonSet.resources | nindent 4 }}

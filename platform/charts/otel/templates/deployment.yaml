@@ -29,6 +29,14 @@ spec:
   mode: deployment
   replicas: {{ .Values.collectorDeployment.replicas }}
   serviceAccount: otel-collector
+  {{- with .Values.collectorDeployment.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.collectorDeployment.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 
   resources:
     {{- toYaml .Values.collectorDeployment.resources | nindent 4 }}

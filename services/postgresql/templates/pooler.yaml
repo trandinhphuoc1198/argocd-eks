@@ -42,6 +42,14 @@ spec:
       labels:
         app.kubernetes.io/component: pgbouncer-rw
     spec:
+      {{- with .Values.pooler.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.pooler.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: pgbouncer
           resources:
@@ -91,6 +99,10 @@ spec:
       labels:
         app.kubernetes.io/component: pgbouncer-ro
     spec:
+      nodeSelector:
+        {{- toYaml .Values.pooler.ro.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.pooler.ro.tolerations | nindent 8 }}
       containers:
         - name: pgbouncer
           resources:

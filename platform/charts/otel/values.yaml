@@ -45,6 +45,12 @@ collectorDaemonSet:
   enabled: true
   name: otel-collector-ds
 
+  nodeSelector: {}
+
+  # Tolerations for the node-level collector DaemonSet. Use this to let the
+  # collector run on tainted nodes such as control-plane nodes.
+  tolerations: []
+
   resources:
     limits:
       cpu: 200m
@@ -83,6 +89,9 @@ collectorDeployment:
   enabled: true
   name: otel-collector-agg
   replicas: 2
+
+  nodeSelector: {}
+  tolerations: []
 
   resources:
     limits:

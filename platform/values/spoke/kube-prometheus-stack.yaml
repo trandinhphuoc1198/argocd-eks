@@ -93,6 +93,8 @@ kube-state-metrics:
 
 prometheus-node-exporter:
   priorityClassName: system-node-critical
+  tolerations:
+    - operator: Exists
   resources:
     limits:
       cpu: 100m

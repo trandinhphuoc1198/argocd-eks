@@ -5,7 +5,11 @@
 # Tempo/Loki now happens once, centrally, on hub.
 collectorDaemonSet:
   enabled: true
-
+  tolerations:
+    - key: workload-tier
+      operator: Equal
+      value: workload
+      effect: NoSchedule
 collectorDeployment:
   enabled: false
 

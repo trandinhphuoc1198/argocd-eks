@@ -22,13 +22,15 @@ storageClasses:
 
 controller:
   replicaCount: 2
-  topologySpreadConstraints:
-    - maxSkew: 1
-      topologyKey: kubernetes.io/hostname
-      whenUnsatisfiable: DoNotSchedule
-      labelSelector:
-        matchLabels:
-          app: ebs-csi-controller
+  tolerations:
+    - operator: Exists
+  # topologySpreadConstraints:
+  #   - maxSkew: 1
+  #     topologyKey: kubernetes.io/hostname
+  #     whenUnsatisfiable: DoNotSchedule
+  #     labelSelector:
+  #       matchLabels:
+  #         app: ebs-csi-controller
   resources:
     requests:
       cpu: 50m
@@ -39,6 +41,11 @@ controller:
 
 node:
   priorityClassName: system-node-critical
+  tolerations:
+    - key: workload-tier
+      operator: Equal
+      value: workload
+      effect: NoSchedule
   resources:
     requests:
       cpu: 20m

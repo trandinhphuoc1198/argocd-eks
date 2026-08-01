@@ -97,8 +97,13 @@ serviceAccount:
   annotations: {}
   name: ""
 
-nodeSelector: {}
-tolerations: []
+nodeSelector:
+  workload-tier: workload
+tolerations:
+  - key: workload-tier
+    operator: Equal
+    value: workload
+    effect: NoSchedule
 affinity: {}
 
 # Security context for pod and containers
