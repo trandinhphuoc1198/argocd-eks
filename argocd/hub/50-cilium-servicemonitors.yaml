@@ -21,7 +21,7 @@ spec:
   source:
     repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
     targetRevision: main
-    path: platform/monitoring-configs
+    path: platform/monitoring-configs/cilium
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

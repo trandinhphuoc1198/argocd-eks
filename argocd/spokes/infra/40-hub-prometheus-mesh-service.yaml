@@ -32,9 +32,7 @@ spec:
       source:
         repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
         targetRevision: main
-        path: platform/monitoring-configs
-        directory:
-          include: "hub-prometheus-mesh-service.yaml"
+        path: platform/monitoring-configs/mesh
       destination:
         server: '{{server}}'
         namespace: monitoring
