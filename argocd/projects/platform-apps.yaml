@@ -7,6 +7,8 @@ spec:
   description: >
     The application layer for SPOKE clusters
 
+  # Both charts here are local to this repo — no external Helm chart repos
+  # needed, unlike platform-infra.
   sourceRepos:
     - "https://github.com/trandinhphuoc1198/argocd-eks.git"
 
@@ -16,28 +18,9 @@ spec:
     - server: "*"
       namespace: db
 
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
   clusterResourceWhitelist:
     - group: ""
-      kind: Namespace          # CreateNamespace=true on both ApplicationSets
-
-  namespaceResourceWhitelist:
-    - group: ""
-      kind: Service
-    - group: ""
-      kind: Secret
-    - group: ""
-      kind: ServiceAccount
-    - group: ""
-      kind: ConfigMap
-    - group: apps
-      kind: Deployment
-    - group: keda.sh
-      kind: ScaledObject
-    - group: monitoring.coreos.com
-      kind: ServiceMonitor
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: postgresql.cnpg.io
-      kind: Cluster
-    - group: postgresql.cnpg.io
-      kind: Pooler
+      kind: Namespace
