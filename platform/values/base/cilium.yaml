@@ -19,35 +19,48 @@
 # via a second helm.valueFiles entry, tier file last so it wins.
 
 # ── Routing ────────────────────────────────────────────────────────────────
-# Native routing (no VXLAN encapsulation) instead of the previous
-# routingMode: tunnel. Nodes are not L2-adjacent (each cluster spans 2
-# private subnets/AZs), so pod-to-pod traffic across AZs relies entirely on
-# AWS VPC route tables, not direct netlink routes between nodes — hence
-# autoDirectNodeRoutes: false below. Those VPC routes are synced by AWS
-# Cloud Controller Manager's route controller (platform/values/base/aws-ccm.yaml,
-# --configure-cloud-routes=true), not by Cilium itself. CCM watches
-# node.spec.podCIDR (assigned by kube-controller-manager under
-# ipam.mode: kubernetes) and creates/removes the matching VPC route
-# automatically, including on node replacement — see modules/ec2's
-# master_ccm_policy for the IAM this needs and modules/vpc for the
-# kubernetes.io/cluster/<name> tag CCM discovers the route table by.
-#
-# Cluster Mesh note: cross-cluster pod routing now also depends on the AWS
-# side being "flat" between clusters (VPC peering/TGW + route tables
-# advertising each cluster's pod CIDR to the others) — that's provisioned
-# outside this repo (Terraform), not by CCM, which only manages routes
-# within its own cluster's VPC.
+# Native routing (no VXLAN) — unchanged. What changed: pods now get real
+# VPC IPs directly from each node's ENIs (ipam.mode: eni) instead of a
+# per-node slice of a separate pod-CIDR (ipam.mode: kubernetes). AWS VPC
+# route tables already route real VPC IPs everywhere (in-VPC and, via the
+# TGW peer-CIDR routes in modules/tgw-attachment, cross-cluster) — no
+# per-node podCIDR route sync is needed anymore, so AWS CCM no longer runs
+# with --configure-cloud-routes=true (see platform/values/base/aws-ccm.yaml).
 routingMode: native
 
-ipv4NativeRoutingCIDR: "100.64.0.0/10"
+# VPC-CIDR supernet, not pod-CIDR anymore — tells Cilium which destination
+# IPs are "in-mesh" (route natively, never masquerade). Must match
+# modules/ec2's vpc_cidr_supernet default (10.0.0.0/8).
+ipv4NativeRoutingCIDR: "10.0.0.0/8"
 
 ipam:
-  mode: kubernetes
+  mode: eni
 
-# false: nodes are spread across multiple AZs/subnets, so direct
-# node-to-node netlink routes (which only work for L2-adjacent nodes)
-# don't apply here. Leaving this true would have Cilium's own node-route
-# reconciler fight the cloud-managed routes from AWS CCM.
+eni:
+  enabled: true
+  # Prefix delegation — allocate /28 prefixes instead of individual
+  # secondary IPs, so each ENI holds far more usable pod IPs and the
+  # operator makes far fewer AssignPrivateIpAddresses/AttachNetworkInterface
+  # calls. Meaningfully reduces API throttling risk on instance types with
+  # modest default ENI limits (t3/c7i-flex).
+  awsEnablePrefixDelegation: true
+  # Pod ENIs/secondary IPs are allocated from the SAME private subnets
+  # nodes already live in (modules/vpc reused, per design decision — no
+  # dedicated pod subnets). Tagged there so the operator's subnet
+  # discovery only picks up the private subnets, never the public ones.
+  subnetTagsFilter:
+    - "cilium.io/pod-subnet=true"
+  # New ENIs get the node's own worker/master SG attached (tagged in
+  # modules/ec2) — pod traffic is covered by the exact same ingress/egress
+  # rules already defined there, no separate pod SG to maintain.
+  securityGroupTags:
+    cilium.io/pod-sg: "true"
+  awsReleaseExcessIPs: true
+  updateEC2AdapterLimitViaAPI: true
+
+# false: still correct under ENI mode — ENI-allocated pod IPs are already
+# real, VPC-routable addresses; nothing about direct node-to-node netlink
+# routes changes here.
 autoDirectNodeRoutes: false
 
 kubeProxyReplacement: "true"
