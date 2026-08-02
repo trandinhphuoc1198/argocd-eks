@@ -8,7 +8,10 @@
 # ever need to diverge (different region, different node labels), add keys
 # to the relevant tier file — do not special-case a tier here.
 
-
+args:
+  - --v=6
+  - --cloud-provider=aws
+  - --configure-cloud-routes=false
 
 image:
   repository: docker.io/gintaku98/aws-cloud-controller-manager

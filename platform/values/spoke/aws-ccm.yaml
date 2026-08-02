@@ -4,6 +4,4 @@
 # argocd/spokes/infra/00-aws-ccm.yaml. Empty today — every spoke runs CCM
 # identically to the hub. Add keys here if that ever changes; do not edit
 # base/aws-ccm.yaml to special-case spokes.
-args:
-  - --v=6
-  - --cloud-provider=aws
+{}

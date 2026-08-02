@@ -8,6 +8,4 @@
 # Terraform installed CCM on the hub originally — verify `helm get values
 # aws-cloud-controller-manager -n kube-system` matches base + this file
 # before enabling automated sync.
-args:
-  - --v=6
-  - --cloud-provider=aws
+{}
