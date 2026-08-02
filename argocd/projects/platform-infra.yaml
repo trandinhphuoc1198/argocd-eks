@@ -70,7 +70,11 @@ spec:
     - group: karpenter.k8s.aws
       kind: EC2NodeClass
     - group: apiregistration.k8s.io
-      kind: APIService          # metrics-server, KEDA external metrics
+      kind: APIService
+    - group: admissionregistration.k8s.io 
+      kind: ValidatingAdmissionPolicy      
+    - group: admissionregistration.k8s.io 
+      kind: ValidatingAdmissionPolicyBinding
 
   namespaceResourceWhitelist:
     - group: "*"
