@@ -12,8 +12,8 @@ ami:
 rootDevice: /dev/xvda
 
 instanceTypes:
-  - c7i-flex.large
-  - m7i-flex.large
+  - t3.small
+  # - c7i-flex.large
 
 limits:
   cpu: "15"
