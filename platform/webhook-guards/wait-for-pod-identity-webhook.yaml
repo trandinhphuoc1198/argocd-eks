@@ -3,27 +3,6 @@
 # PreSync hook for aws-ebs-csi-driver (hub: argocd/hub/50-aws-ebs-csi-driver.yaml,
 # spoke: argocd/spokes/infra/50-aws-ebs-csi-driver.yaml).
 #
-# WHY THIS EXISTS: sync-wave ordering + the wave-gate health customization
-# (platform/values/hub/argocd.yaml -> resource.customizations.health.argoproj.io_Application)
-# should be enough, but on a from-scratch bootstrap it can race — that Lua
-# customization only takes effect once the `argocd` Application's own sync
-# has updated argocd-cm, and every child Application reconciles
-# independently under its own selfHeal policy regardless of wave. That gap
-# let aws-ebs-csi-driver's controller Deployment get created before
-# pod-identity-webhook was actually Running, so the controller pod's
-# ServiceAccount annotation (eks.amazonaws.com/role-arn) was never mutated
-# in — it silently fell back to node instance-profile credentials instead
-# of IRSA, no error anywhere.
-#
-# This Job is a hard, Kubernetes-native guarantee that doesn't depend on
-# any of that: ArgoCD will not apply the rest of this sync (the real
-# ebs-csi-controller/ebs-csi-node resources) until this PreSync hook Job
-# succeeds. It's deployed as an extra source alongside the Helm chart in
-# the same multi-source Application, so it lands in the same sync
-# operation and its hook annotation is honored by ArgoCD.
-#
-# Shared by both hub and spoke — both target namespace kube-system, both
-# wait on the same Deployment name.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -97,11 +76,13 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          # No shell in this image — call kubectl directly, no `sh -c`.
           command:
-            - /bin/sh
-            - -c
-            - |
-              set -euo pipefail
-              echo "Waiting for pod-identity-webhook to be Running before letting aws-ebs-csi-driver create its controller pod..."
-              kubectl -n kube-system rollout status deployment/pod-identity-webhook --timeout=180s
-              echo "pod-identity-webhook is ready — proceeding with aws-ebs-csi-driver sync."
+            - "kubectl"
+          args:
+            - "-n"
+            - "kube-system"
+            - "rollout"
+            - "status"
+            - "deployment/pod-identity-webhook-amazon-eks-pod-identity-webhook"
+            - "--timeout=180s"
