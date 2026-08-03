@@ -23,6 +23,7 @@ spec:
     - "https://cloudnative-pg.github.io/charts"
     - "https://kubernetes-sigs.github.io/metrics-server/"
     - "oci://public.ecr.aws/karpenter/karpenter"
+    - "https://jkroepke.github.io/helm-charts/"
 
   # (destinations / clusterResourceWhitelist / namespaceResourceWhitelist unchanged —
   # kube-system already whitelisted, both wildcards already cover Karpenter's

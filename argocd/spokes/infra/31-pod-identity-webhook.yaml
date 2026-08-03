@@ -1,11 +1,14 @@
-# Wave 20 — needs Cilium's pod networking (wave "10") up first. Provides
-# the 'ebs-csi' StorageClass that kube-prometheus-stack (wave "30") and
-# postgresql (wave "50") both provision PVCs against, so this must be
-# healthy before either of those.
+# Wave 31 — spoke counterpart of argocd/hub/31-pod-identity-webhook.yaml.
+# Same dependency chain: needs internal-ca-issuer from cert-manager-configs
+# (30-cert-manager-configs.yaml, wave "30"), must be registered and
+# serving BEFORE aws-ebs-csi-driver (32-aws-ebs-csi-driver.yaml, wave
+# "32") creates its controller pod — see that Application's header
+# comment for why "before" has to mean "already synced", not just
+# "lower wave number".
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: aws-ebs-csi-driver
+  name: pod-identity-webhook
   namespace: argocd
 spec:
   generators:
@@ -15,21 +18,21 @@ spec:
             cluster-role: workload
   template:
     metadata:
-      name: 'aws-ebs-csi-driver-{{name}}'
+      name: 'pod-identity-webhook-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "20"
+        argocd.argoproj.io/sync-wave: "31"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
       project: platform-infra
       sources:
-        - repoURL: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
-          chart: aws-ebs-csi-driver
-          targetRevision: "2.63.0"
+        - repoURL: https://jkroepke.github.io/helm-charts/
+          chart: amazon-eks-pod-identity-webhook
+          targetRevision: "2.6.5"   # VERIFY latest before first sync
           helm:
-            releaseName: aws-ebs-csi-driver
+            releaseName: pod-identity-webhook
             valueFiles:
-              - $values/platform/values/base/ebs-csi.yaml
+              - $values/platform/values/base/pod-identity-webhook.yaml
         - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values

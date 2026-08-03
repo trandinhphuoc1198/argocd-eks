@@ -1,0 +1,48 @@
+# platform/values/base/pod-identity-webhook.yaml
+#
+# Self-hosted equivalent of EKS's built-in pod-identity mutating webhook.
+# Without this, ServiceAccount annotations like eks.amazonaws.com/role-arn
+# (see platform/values/hub/ebs-csi.yaml, argocd/clusters/*.yaml) do
+# NOTHING — no error, the pod just quietly falls back to node-role
+# credentials. This is what actually injects AWS_ROLE_ARN,
+# AWS_WEB_IDENTITY_TOKEN_FILE, and the projected SA token volume at
+# pod-admission time. See modules/irsa/README.md's prerequisite #3.
+#
+# Chart: jkroepke/amazon-eks-pod-identity-webhook (unofficial — AWS ships
+# no Helm chart for this itself, only raw manifests + a Go binary).
+# Shared across hub + every spoke — config is identical everywhere
+# (region, annotation prefix), same base+tier convention as ebs-csi.yaml.
+#
+# VERIFY before first sync: `helm show values jkroepke/amazon-eks-pod-identity-webhook
+#   --version <pinned version>` — the certManager.* and webhook.* keys
+# below are this chart's documented pattern for cert-manager-issued TLS
+# and webhook failure policy, but confirm exact field names against the
+# pinned chart version before relying on them; this chart's values schema
+# has shifted across major versions (0.x -> 1.x -> 2.x).
+config:
+  annotationPrefix: "eks.amazonaws.com"
+  defaultAwsRegion: "ap-northeast-1"
+
+certManager:
+  enabled: true
+  issuerRef:
+    name: internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+
+webhook:
+  # Pods still start if the webhook is briefly down — same posture as the
+  # OTel Operator's admission webhook (admissionWebhooks.failurePolicy:
+  # Ignore in platform/values/base/otel-operator.yaml). A hard "Fail"
+  # here would mean any pod, cluster-wide, fails to schedule if this
+  # webhook's pod is ever unavailable — too big a blast radius for what
+  # this buys.
+  failurePolicy: Ignore
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi

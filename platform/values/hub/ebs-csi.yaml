@@ -1,0 +1,21 @@
+# platform/values/hub/ebs-csi.yaml
+#
+# Hub-tier overlay, layered on top of platform/values/base/ebs-csi.yaml by
+# argocd/hub/32-aws-ebs-csi-driver.yaml.
+#
+# Wires the controller's ServiceAccount to the IRSA role created by
+# modules/irsa for hub (live/hub/main.tf -> module.irsa.roles["ebs-csi-controller"],
+# service_account = "ebs-csi-controller-sa", namespace = kube-system).
+#
+# Requires argocd/hub/31-pod-identity-webhook.yaml to already be synced —
+# this annotation alone does nothing without that webhook running to
+# inject the AWS_WEB_IDENTITY_TOKEN_FILE + projected volume at pod
+# admission. See that file's header comment.
+#
+# TODO(you): replace with the real ARN after `terraform apply`:
+#   terraform output -json irsa_role_arns | jq -r '."ebs-csi-controller"'
+# (from live/hub)
+controller:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::633825695180:role/hub-dev-irsa-ebs-csi-controller"

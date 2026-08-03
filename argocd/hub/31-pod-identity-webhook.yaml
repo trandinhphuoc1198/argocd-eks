@@ -1,0 +1,47 @@
+# Wave 31 — needs internal-ca-issuer, created by cert-manager-configs
+# (30-cert-manager-configs.yaml, wave "30"), to issue this webhook's own
+# TLS serving cert. Must land BEFORE aws-ebs-csi-driver
+# (32-aws-ebs-csi-driver.yaml, wave "32") — the webhook has to already be
+# registered and serving when the ebs-csi controller pod is first
+# created, or that pod's ServiceAccount annotation
+# (eks.amazonaws.com/role-arn, see platform/values/hub/ebs-csi.yaml) is
+# never mutated in at all, not just "mutated late" — admission mutation
+# only happens once, at pod creation.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pod-identity-webhook
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "31"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform-hub
+  sources:
+    - repoURL: https://jkroepke.github.io/helm-charts/
+      chart: amazon-eks-pod-identity-webhook
+      targetRevision: "2.6.5"
+      helm:
+        releaseName: pod-identity-webhook
+        valueFiles:
+          - $values/platform/values/base/pod-identity-webhook.yaml
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

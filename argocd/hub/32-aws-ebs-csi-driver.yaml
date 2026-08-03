@@ -1,15 +1,21 @@
-# Wave 20 — NEW as of the hub/spoke observability re-split. Hub previously
-# ran no PVC workloads; now Prometheus, Loki, Tempo, and Grafana all need
-# the 'ebs-csi' StorageClass. Needs Cilium's pod networking (wave "10") up
-# first, same as the spoke counterpart
-# (argocd/spokes/infra/20-aws-ebs-csi-driver.yaml).
+# Wave 32 — bumped from wave "20". Hub previously ran no PVC workloads;
+# now Prometheus, Loki, Tempo, and Grafana all need the 'ebs-csi'
+# StorageClass. Needs Cilium's pod networking (wave "10") up first, same
+# as the spoke counterpart (argocd/spokes/infra/32-aws-ebs-csi-driver.yaml).
+#
+# BUMPED from "20" to "32": the controller ServiceAccount now carries an
+# eks.amazonaws.com/role-arn annotation (platform/values/hub/ebs-csi.yaml)
+# that only does anything if pod-identity-webhook
+# (31-pod-identity-webhook.yaml, wave "31") is already registered and
+# serving by the time this Application's controller pod is first created
+# — admission mutation happens once, at creation, not on a later resync.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: aws-ebs-csi-driver
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-wave: "32"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -22,6 +28,7 @@ spec:
         releaseName: aws-ebs-csi-driver
         valueFiles:
           - $values/platform/values/base/ebs-csi.yaml
+          - $values/platform/values/hub/ebs-csi.yaml
     - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       ref: values
