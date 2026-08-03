@@ -23,6 +23,21 @@ config:
   annotationPrefix: "eks.amazonaws.com"
   defaultAwsRegion: "ap-northeast-1"
 
+# Webhook failure policy — was likely `webhook.failurePolicy` before;
+# chart 2.6.5 nests this under mutatingWebhook, not a top-level `webhook` key.
+mutatingWebhook:
+  failurePolicy: Ignore   # match whatever policy you intended (Ignore/Fail)
+
+# cert-manager-issued TLS for the webhook's serving cert — was likely a
+# top-level `certManager:` block before; chart 2.6.5 nests it under pki.certManager.
+pki:
+  certManager:
+    enabled: true
+    existingIssuer:
+      enabled: true
+      kind: ClusterIssuer
+      name: internal-ca-issuer   # or whatever issuer you were pointing at
+
 resources:
   requests:
     cpu: 50m
