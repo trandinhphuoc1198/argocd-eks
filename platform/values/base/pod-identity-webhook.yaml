@@ -23,22 +23,6 @@ config:
   annotationPrefix: "eks.amazonaws.com"
   defaultAwsRegion: "ap-northeast-1"
 
-certManager:
-  enabled: true
-  issuerRef:
-    name: internal-ca-issuer
-    kind: ClusterIssuer
-    group: cert-manager.io
-
-webhook:
-  # Pods still start if the webhook is briefly down — same posture as the
-  # OTel Operator's admission webhook (admissionWebhooks.failurePolicy:
-  # Ignore in platform/values/base/otel-operator.yaml). A hard "Fail"
-  # here would mean any pod, cluster-wide, fails to schedule if this
-  # webhook's pod is ever unavailable — too big a blast radius for what
-  # this buys.
-  failurePolicy: Ignore
-
 resources:
   requests:
     cpu: 50m
