@@ -1,8 +1,8 @@
 # platform/values/base/ebs-csi.yaml
 #
 # Shared across every deployment tier. Consumed by BOTH:
-#   - argocd/hub/20-aws-ebs-csi-driver.yaml            (hub)
-#   - argocd/spokes/infra/20-aws-ebs-csi-driver.yaml   (every spoke)
+#   - argocd/hub/32-aws-ebs-csi-driver.yaml            (hub)
+#   - argocd/spokes/infra/32-aws-ebs-csi-driver.yaml   (every spoke)
 #
 # PROMOTED here from platform/values/spoke/ebs-csi.yaml as of the
 # hub/spoke observability re-split — hub now needs the same 'ebs-csi'
@@ -24,7 +24,7 @@ controller:
   replicaCount: 2
   # topologySpreadConstraints:
   #   - maxSkew: 1
-  #     topologyKey: kubernetes.io/hostname
+  #     topologyKey: hostname
   #     whenUnsatisfiable: DoNotSchedule
   #     labelSelector:
   #       matchLabels:
@@ -36,6 +36,11 @@ controller:
     limits:
       cpu: 100m
       memory: 128Mi
+
+  # ── ServiceAccount — declared explicitly for IRSA
+  serviceAccount:
+    create: true
+    name: ebs-csi-controller-sa
 
 node:
   priorityClassName: system-node-critical
