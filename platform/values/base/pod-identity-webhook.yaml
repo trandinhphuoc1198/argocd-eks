@@ -27,13 +27,6 @@ config:
 # chart 2.6.5 nests this under mutatingWebhook, not a top-level `webhook` key.
 mutatingWebhook:
   failurePolicy: Fail
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: NotIn
-        values:
-          - kube-system     # webhook + core components live here
-  timeoutSeconds: 5
 
 # cert-manager-issued TLS for the webhook's serving cert — was likely a
 # top-level `certManager:` block before; chart 2.6.5 nests it under pki.certManager.
