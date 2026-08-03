@@ -46,38 +46,6 @@ configs:
     # Gateway/Envoy and the backend pod.
     server.insecure: true
   
-  cm:
-    resource.customizations.health.argoproj.io_Application: |
-      hs = {}
-      hs.status = "Progressing"
-      hs.message = ""
-      if obj.status ~= nil then
-        if obj.status.health ~= nil then
-          hs.status = obj.status.health.status
-          if obj.status.health.message ~= nil then
-            hs.message = obj.status.health.message
-          end
-        end
-      end
-      return hs
-    resource.customizations.health.admissionregistration.k8s.io_MutatingWebhookConfiguration: |
-      hs = {}
-      hs.status = "Progressing"
-      hs.message = "Waiting for cert-manager to inject caBundle"
-      if obj.webhooks ~= nil then
-        allReady = true
-        for i, webhook in ipairs(obj.webhooks) do
-          if webhook.clientConfig.caBundle == nil or webhook.clientConfig.caBundle == "" then
-            allReady = false
-          end
-        end
-        if allReady then
-          hs.status = "Healthy"
-          hs.message = "caBundle injected"
-        end
-      end
-      return hs
-
 server:
   ingress:
     enabled: false
