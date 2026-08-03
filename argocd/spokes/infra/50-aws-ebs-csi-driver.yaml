@@ -12,6 +12,14 @@
 # (40-pod-identity-webhook.yaml, wave "40") is already registered and
 # serving by the time this Application's controller pod is first created
 # — admission mutation happens once, at creation, not on a later resync.
+#
+# Third source (platform/webhook-guards) adds a PreSync hook Job that
+# hard-blocks the controller/node resources from applying until
+# pod-identity-webhook is actually Running on this spoke — wave ordering
+# alone raced against it on a from-scratch hub bootstrap, same risk
+# applies per-spoke. See
+# platform/webhook-guards/wait-for-pod-identity-webhook.yaml's header
+# comment.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -41,18 +49,16 @@ spec:
             valueFiles:
               - $values/platform/values/base/ebs-csi.yaml
             parameters:
-              # IAM ARNs contain ':' and '/', which are not valid
-              # Kubernetes label values — this is templated from an
-              # ANNOTATION on the cluster Secret (irsa-ebs-csi-role-arn),
-              # not a label, unlike '{{name}}'/cluster-mesh-id elsewhere.
-              # The dots in the helm parameter key itself must be escaped
-              # (\.) so Helm treats "eks.amazonaws.com/role-arn" as one
-              # annotation key, not nested map levels.
               - name: controller.serviceAccount.annotations.eks\.amazonaws\.com/role-arn
                 value: '{{metadata.annotations.irsa-ebs-csi-role-arn}}'
         - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
+          targetRevision: main
+          path: platform/webhook-guards
+          directory:
+            include: "wait-for-pod-identity-webhook.yaml"
       destination:
         server: '{{server}}'
         namespace: kube-system

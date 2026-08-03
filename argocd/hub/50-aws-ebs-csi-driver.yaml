@@ -3,6 +3,12 @@
 # StorageClass. Needs Cilium's pod networking (wave "10") up first, same
 # as the spoke counterpart (argocd/spokes/infra/50-aws-ebs-csi-driver.yaml).
 #
+# Third source (platform/webhook-guards) adds a PreSync hook Job that
+# blocks this sync's real resources from applying until
+# pod-identity-webhook (wave "40") is actually Running — sync-wave
+# ordering alone raced against it on a from-scratch bootstrap. See
+# platform/webhook-guards/wait-for-pod-identity-webhook.yaml's header
+# comment for the full story.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -26,6 +32,11 @@ spec:
     - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       ref: values
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
+      targetRevision: main
+      path: platform/webhook-guards
+      directory:
+        include: "wait-for-pod-identity-webhook.yaml"
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

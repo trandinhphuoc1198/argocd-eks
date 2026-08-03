@@ -7,7 +7,7 @@
 # modules/irsa for hub (live/hub/main.tf -> module.irsa.roles["ebs-csi-controller"],
 # service_account = "ebs-csi-controller-sa", namespace = kube-system).
 #
-# Requires argocd/hub/31-pod-identity-webhook.yaml to already be synced —
+# Requires argocd/hub/40-pod-identity-webhook.yaml to already be synced —
 # this annotation alone does nothing without that webhook running to
 # inject the AWS_WEB_IDENTITY_TOKEN_FILE + projected volume at pod
 # admission. See that file's header comment.
@@ -16,5 +16,3 @@ controller:
   serviceAccount:
     annotations:
       eks.amazonaws.com/role-arn: "arn:aws:iam::633825695180:role/hub-dev-irsa-ebs-csi-controller"
-      eks.amazonaws.com/pod-identity: "enabled"
-
