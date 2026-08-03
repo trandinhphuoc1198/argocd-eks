@@ -12,9 +12,6 @@
 # inject the AWS_WEB_IDENTITY_TOKEN_FILE + projected volume at pod
 # admission. See that file's header comment.
 #
-# TODO(you): replace with the real ARN after `terraform apply`:
-#   terraform output -json irsa_role_arns | jq -r '."ebs-csi-controller"'
-# (from live/hub)
 controller:
   serviceAccount:
     annotations:

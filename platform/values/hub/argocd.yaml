@@ -45,6 +45,25 @@ configs:
     # This prevents redundant double-encryption overhead between the
     # Gateway/Envoy and the backend pod.
     server.insecure: true
+  
+  cm:
+    resource.customizations.health.admissionregistration.k8s.io_MutatingWebhookConfiguration: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = "Waiting for cert-manager to inject caBundle"
+      if obj.webhooks ~= nil then
+        allReady = true
+        for i, webhook in ipairs(obj.webhooks) do
+          if webhook.clientConfig.caBundle == nil or webhook.clientConfig.caBundle == "" then
+            allReady = false
+          end
+        end
+        if allReady then
+          hs.status = "Healthy"
+          hs.message = "caBundle injected"
+        end
+      end
+      return hs
 
 server:
   ingress:

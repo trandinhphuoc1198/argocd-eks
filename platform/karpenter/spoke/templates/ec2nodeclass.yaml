@@ -29,11 +29,6 @@ spec:
         volumeSize: 20Gi
         volumeType: gp3
         encrypted: true
-
-  # TODO(you): required action — port your kubeadm join / cloud-init
-  # worker bootstrap here. Same script should work unmodified across
-  # every spoke as long as the join logic itself is cluster-agnostic
-  # (reads its own join token/endpoint at boot rather than baking one in).
   userData: |
     #!/bin/bash
     set -euo pipefail

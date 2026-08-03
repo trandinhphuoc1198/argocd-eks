@@ -44,19 +44,6 @@ spec:
           cluster-mesh-id: "2"
           cluster-mesh-ip: "10.1.11.10"
         annotations:
-          # IAM ARNs contain ':' and '/', which are not valid Kubernetes
-          # label values — unlike cluster-mesh-id/cluster-mesh-ip above,
-          # this has to be an annotation, not a label. Static,
-          # manually-assigned per spoke (NOT sourced from the AWS secret),
-          # same rationale as the mesh labels above. Read by
-          # argocd/spokes/infra/32-aws-ebs-csi-driver.yaml via
-          # '{{metadata.annotations.irsa-ebs-csi-role-arn}}' to wire this
-          # spoke's ebs-csi-controller-sa to its own IRSA role
-          # (live/spoke/main.tf -> module.irsa.roles["ebs-csi-controller"]).
-          #
-          # TODO(you): replace with the real ARN after `terraform apply`
-          # (from live/spoke):
-          #   terraform output -json irsa_role_arns | jq -r '."ebs-csi-controller"'
           irsa-ebs-csi-role-arn: "arn:aws:iam::633825695180:role/spoke-dev-irsa-ebs-csi-controller"
       data:
         name: "{{ .name }}"

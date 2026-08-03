@@ -14,8 +14,8 @@ storage:
   trace:
     backend: s3
     s3:
-      bucket: tempo-s3-phuoctd6       # TODO: replace with your bucket name
-      region: ap-northeast-1               # TODO: replace with your bucket region
+      bucket: tempo-s3-phuoctd6       
+      region: ap-northeast-1               
       insecure: false                      # keep false — S3 always uses TLS
       endpoint: s3.ap-northeast-1.amazonaws.com
 

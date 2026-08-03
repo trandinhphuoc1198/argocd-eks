@@ -11,10 +11,7 @@
 # Karpenter's controller IAM policy (ec2:RunInstances/CreateFleet/
 # TerminateInstances/CreateTags/Describe*, iam:PassRole scoped to the
 # worker node role, ssm:GetParameter, pricing:GetProducts).
-#
-# TODO(you): attach that policy to the control-plane instance profile
-# (Terraform) before enabling automated sync — controller will
-# CrashLoop/permission-error on every provisioning attempt otherwise.
+
 
 serviceAccount:
   create: true
