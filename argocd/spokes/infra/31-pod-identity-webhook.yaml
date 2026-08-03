@@ -28,7 +28,7 @@ spec:
       sources:
         - repoURL: https://jkroepke.github.io/helm-charts/
           chart: amazon-eks-pod-identity-webhook
-          targetRevision: "2.6.5"   # VERIFY latest before first sync
+          targetRevision: "2.6.5"
           helm:
             releaseName: pod-identity-webhook
             valueFiles:

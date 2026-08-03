@@ -1,4 +1,4 @@
-# Wave 40 — NEW as of the hub/spoke observability re-split. This is now the
+# Wave 60 — NEW as of the hub/spoke observability re-split. This is now the
 # fleet's single central Prometheus/Grafana/Alertmanager. Needs the
 # 'ebs-csi' StorageClass (20-aws-ebs-csi-driver.yaml, wave "20").
 #
@@ -21,7 +21,7 @@ metadata:
   name: kube-prometheus-stack
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "40"
+    argocd.argoproj.io/sync-wave: "60"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

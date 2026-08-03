@@ -1,12 +1,12 @@
-# Wave 32 — bumped from wave "20". Hub previously ran no PVC workloads;
+# Wave 50 — bumped from wave "20". Hub previously ran no PVC workloads;
 # now Prometheus, Loki, Tempo, and Grafana all need the 'ebs-csi'
 # StorageClass. Needs Cilium's pod networking (wave "10") up first, same
-# as the spoke counterpart (argocd/spokes/infra/32-aws-ebs-csi-driver.yaml).
+# as the spoke counterpart (argocd/spokes/infra/50-aws-ebs-csi-driver.yaml).
 #
-# BUMPED from "20" to "32": the controller ServiceAccount now carries an
+# BUMPED from "20" to "50": the controller ServiceAccount now carries an
 # eks.amazonaws.com/role-arn annotation (platform/values/hub/ebs-csi.yaml)
 # that only does anything if pod-identity-webhook
-# (31-pod-identity-webhook.yaml, wave "31") is already registered and
+# (40-pod-identity-webhook.yaml, wave "40") is already registered and
 # serving by the time this Application's controller pod is first created
 # — admission mutation happens once, at creation, not on a later resync.
 apiVersion: argoproj.io/v1alpha1
@@ -15,7 +15,7 @@ metadata:
   name: aws-ebs-csi-driver
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "32"
+    argocd.argoproj.io/sync-wave: "50"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

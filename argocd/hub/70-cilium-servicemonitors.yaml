@@ -1,4 +1,4 @@
-# Wave 41 — NEW as of the hub/spoke observability re-split. Hub runs
+# Wave 70 — NEW as of the hub/spoke observability re-split. Hub runs
 # Cilium too (10-cilium.yaml) but never had a local Prometheus to scrape
 # it with until now. Reuses the exact same manifest already deployed to
 # every spoke (platform/monitoring-configs/cilium-servicemonitors.yaml) —
@@ -13,7 +13,7 @@ metadata:
   name: cilium-servicemonitors
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "50"
+    argocd.argoproj.io/sync-wave: "70"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

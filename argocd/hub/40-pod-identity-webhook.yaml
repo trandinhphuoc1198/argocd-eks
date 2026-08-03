@@ -1,4 +1,4 @@
-# Wave 31 — needs internal-ca-issuer, created by cert-manager-configs
+# Wave 40 — needs internal-ca-issuer, created by cert-manager-configs
 # (30-cert-manager-configs.yaml, wave "30"), to issue this webhook's own
 # TLS serving cert. Must land BEFORE aws-ebs-csi-driver
 # (32-aws-ebs-csi-driver.yaml, wave "32") — the webhook has to already be
@@ -13,7 +13,7 @@ metadata:
   name: pod-identity-webhook
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "31"
+    argocd.argoproj.io/sync-wave: "40"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

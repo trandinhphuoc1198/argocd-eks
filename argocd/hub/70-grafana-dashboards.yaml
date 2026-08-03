@@ -1,4 +1,4 @@
-# Wave 41 — MOVED FROM argocd/spokes/infra/40-grafana-dashboards.yaml.
+# Wave 70 — MOVED FROM argocd/spokes/infra/40-grafana-dashboards.yaml.
 # Plain ConfigMaps (not a Helm chart) — picked up by the Grafana sidecar
 # that now runs on hub via kube-prometheus-stack. Deliberately one wave
 # AFTER kube-prometheus-stack (40-kube-prometheus-stack.yaml, wave "40")
@@ -12,7 +12,7 @@ metadata:
   name: grafana-dashboards
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "50"
+    argocd.argoproj.io/sync-wave: "70"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
