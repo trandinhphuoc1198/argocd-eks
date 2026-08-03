@@ -14,6 +14,7 @@ metadata:
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "40"
+    platform.io/wave-gate: "true"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

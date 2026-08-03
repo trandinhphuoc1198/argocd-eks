@@ -46,6 +46,30 @@ configs:
     # Gateway/Envoy and the backend pod.
     server.insecure: true
   
+  cm:
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      local gated = false
+      if obj.metadata ~= nil and obj.metadata.annotations ~= nil then
+        if obj.metadata.annotations["platform.io/wave-gate"] == "true" then
+          gated = true
+        end
+      end
+      if not gated then
+        hs.status = "Healthy"
+        hs.message = "not wave-gated"
+        return hs
+      end
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil and obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+      return hs
+
 server:
   ingress:
     enabled: false
