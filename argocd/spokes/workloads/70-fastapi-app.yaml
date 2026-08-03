@@ -1,11 +1,11 @@
-# Wave 60 — last wave. Custom local chart (services/fastapi-app). Depends
+# Wave 70 — last wave. Custom local chart (services/fastapi-app). Depends
 # on, per spoke:
 #   - the Gateway (wave "30") + its HTTPRoute's own listener, for the
 #     HTTPRoute this chart creates
 #     (services/fastapi-app/templates/httproute.yaml)
 #   - keda (wave "30") for the ScaledObject CRD
-#   - otel-collectors (wave "40") for the Instrumentation CR it annotates onto
-#   - postgresql (wave "50") for the pg-pooler-rw/ro Services it connects to
+#   - otel-collectors (wave "30") for the Instrumentation CR it annotates onto
+#   - postgresql (wave "60") for the pg-pooler-rw/ro Services it connects to
 #   - prometheus-operator-crds (installed alongside kube-prometheus-stack,
 #     wave "30") for the ServiceMonitor it creates
 #
@@ -26,7 +26,7 @@ spec:
     metadata:
       name: 'fastapi-app-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "60"
+        argocd.argoproj.io/sync-wave: "70"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:

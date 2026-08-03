@@ -1,5 +1,5 @@
-# Wave 40 — needs the ServiceMonitor CRD from prometheus-operator-crds,
-# implicitly installed alongside kube-prometheus-stack (wave "30") — see
+# Wave 70 — needs the ServiceMonitor CRD from prometheus-operator-crds,
+# implicitly installed alongside kube-prometheus-stack (wave "60") — see
 # the "known gaps" note in argocd/README.md about that CRD not being
 # tracked as its own Application.
 apiVersion: argoproj.io/v1alpha1
@@ -17,7 +17,7 @@ spec:
     metadata:
       name: 'cilium-servicemonitors-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "40"
+        argocd.argoproj.io/sync-wave: "70"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:

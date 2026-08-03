@@ -1,7 +1,7 @@
-# Wave 50 — custom local chart (services/postgresql) — creates the CNPG
+# Wave 60 — custom local chart (services/postgresql) — creates the CNPG
 # 'Cluster' + poolers. Depends on the CNPG operator's CRDs
-# (30-cnpg-operator.yaml, wave "30") and the 'ebs-csi' StorageClass
-# (20-aws-ebs-csi-driver.yaml, wave "20") on that spoke.
+# (20-cnpg-operator.yaml, wave "20") and the 'ebs-csi' StorageClass
+# (50-aws-ebs-csi-driver.yaml, wave "50") on that spoke.
 #
 # NOTE: services/postgresql/values.yaml ships a placeholder app-user
 # password ("changeme", base64-encoded) committed in git. That's a
@@ -24,7 +24,7 @@ spec:
     metadata:
       name: 'postgresql-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "50"
+        argocd.argoproj.io/sync-wave: "60"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:

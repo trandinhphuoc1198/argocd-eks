@@ -1,4 +1,4 @@
-# Wave 31 — spoke counterpart of argocd/hub/31-pod-identity-webhook.yaml.
+# Wave 40 — spoke counterpart of argocd/hub/40-pod-identity-webhook.yaml.
 # Same dependency chain: needs internal-ca-issuer from cert-manager-configs
 # (30-cert-manager-configs.yaml, wave "30"), must be registered and
 # serving BEFORE aws-ebs-csi-driver (32-aws-ebs-csi-driver.yaml, wave
@@ -20,7 +20,7 @@ spec:
     metadata:
       name: 'pod-identity-webhook-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "31"
+        argocd.argoproj.io/sync-wave: "40"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:

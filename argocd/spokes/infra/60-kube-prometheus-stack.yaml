@@ -1,4 +1,4 @@
-# Wave 30 — needs prometheus-operator-crds and the 'ebs-csi' StorageClass
+# Wave 60 — needs prometheus-operator-crds and the 'ebs-csi' StorageClass
 # from aws-ebs-csi-driver (wave "20") on that spoke.
 #
 # UPDATED as of the hub/spoke observability re-split: this Prometheus is
@@ -31,7 +31,7 @@ spec:
     metadata:
       name: 'kube-prometheus-stack-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "30"
+        argocd.argoproj.io/sync-wave: "60"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
