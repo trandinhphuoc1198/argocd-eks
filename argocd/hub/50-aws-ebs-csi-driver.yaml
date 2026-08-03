@@ -3,12 +3,6 @@
 # StorageClass. Needs Cilium's pod networking (wave "10") up first, same
 # as the spoke counterpart (argocd/spokes/infra/50-aws-ebs-csi-driver.yaml).
 #
-# BUMPED from "20" to "50": the controller ServiceAccount now carries an
-# eks.amazonaws.com/role-arn annotation (platform/values/hub/ebs-csi.yaml)
-# that only does anything if pod-identity-webhook
-# (40-pod-identity-webhook.yaml, wave "40") is already registered and
-# serving by the time this Application's controller pod is first created
-# — admission mutation happens once, at creation, not on a later resync.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

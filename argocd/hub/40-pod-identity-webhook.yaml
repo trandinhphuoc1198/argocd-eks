@@ -1,7 +1,7 @@
 # Wave 40 — needs internal-ca-issuer, created by cert-manager-configs
 # (30-cert-manager-configs.yaml, wave "30"), to issue this webhook's own
 # TLS serving cert. Must land BEFORE aws-ebs-csi-driver
-# (32-aws-ebs-csi-driver.yaml, wave "32") — the webhook has to already be
+# (50-aws-ebs-csi-driver.yaml, wave "50") — the webhook has to already be
 # registered and serving when the ebs-csi controller pod is first
 # created, or that pod's ServiceAccount annotation
 # (eks.amazonaws.com/role-arn, see platform/values/hub/ebs-csi.yaml) is
