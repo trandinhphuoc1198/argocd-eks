@@ -33,29 +33,14 @@ resources:
 keda:
   enabled: true
   minReplicas: 1
-  maxReplicas: 5
+  maxReplicas: 20
 
   # How often KEDA queries Prometheus (seconds)
-  pollingInterval: 30
+  pollingInterval: 10
   # How long to wait after last trigger fires before scaling in (seconds)
-  cooldownPeriod: 60
+  cooldownPeriod: 20
 
   prometheus:
-    # UPDATED as of the hub/spoke observability re-split: this spoke's own
-    # Prometheus is now Agent mode (platform/values/spoke/kube-prometheus-stack.yaml)
-    # and has NO query API — KEDA's prometheus trigger MUST query a real
-    # Prometheus, so this now points at hub's central one instead, reached
-    # over the Cluster Mesh global "monitoring-hub-prometheus" Service
-    # (deliberately renamed from "monitoring-prometheus" to avoid colliding
-    # with this spoke's own local Agent-mode Service of that name — see
-    # platform/values/hub/kube-prometheus-stack.yaml's header comment).
-    #
-    # This is a real new coupling worth knowing about: fastapi-app's
-    # autoscaling now has a hard runtime dependency on hub being reachable.
-    # If hub is ever unreachable, KEDA's queries fail and (per
-    # ignoreNullValues below) the trigger is simply ignored — it does NOT
-    # scale to zero or to max, it just stops contributing to the scaling
-    # decision until hub comes back.
     serverAddress: http://monitoring-hub-prometheus.monitoring.svc.cluster.local:9090/
 
   # ── Scale-out / scale-in behaviour ─────────────────────────────────────────
