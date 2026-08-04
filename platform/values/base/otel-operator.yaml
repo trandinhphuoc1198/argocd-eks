@@ -48,16 +48,14 @@ manager:
 # ── Admission webhook ─────────────────────────────────────────────────────────
 admissionWebhooks:
   create: true
-  # Ignore = pods still start even if the operator webhook is temporarily down.
   failurePolicy: Ignore
-
   certManager:
-    # Set true if cert-manager is installed in the cluster (recommended for prod).
-    enabled: false
-
-  autoGenerateCert:
     enabled: true
-    recreate: true
+    issuerRef:
+      kind: ClusterIssuer
+      name: internal-ca-issuer
+  autoGenerateCert:
+    enabled: false   # let cert-manager own this instead
 
 # ── CRD installation ──────────────────────────────────────────────────────────
 crds:

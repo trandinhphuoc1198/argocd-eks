@@ -1,4 +1,4 @@
-replicaCount: 8
+replicaCount: 2
 
 image:
   repository: gintaku98/k8s_fastapi
@@ -32,7 +32,7 @@ resources:
 
 keda:
   enabled: true
-  minReplicas: 8
+  minReplicas: 2
   maxReplicas: 20
 
   # How often KEDA queries Prometheus (seconds)

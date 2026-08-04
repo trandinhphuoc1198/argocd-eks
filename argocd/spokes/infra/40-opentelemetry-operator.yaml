@@ -1,11 +1,11 @@
-# Wave 30 — custom local chart (platform/charts/otel). Depends on the OTel
-# Operator CRDs (20-opentelemetry-operator.yaml, wave "20"):
-# OpenTelemetryCollector + Instrumentation.
+# Wave 40 — provides the OpenTelemetryCollector and Instrumentation CRDs
+# that the otel-collectors workload (wave "40") and fastapi-app's
+# auto-instrumentation annotation (wave "60") depend on.
 #
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: otel-collectors
+  name: opentelemetry-operator
   namespace: argocd
 spec:
   generators:
@@ -15,24 +15,21 @@ spec:
             cluster-role: workload
   template:
     metadata:
-      name: 'otel-collectors-{{name}}'
+      name: 'opentelemetry-operator-{{name}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "30"
+        argocd.argoproj.io/sync-wave: "40"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
       project: platform-infra
       sources:
-        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
-          targetRevision: main
-          path: platform/charts/otel
+        - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+          chart: opentelemetry-operator
+          targetRevision: "0.114.1"
           helm:
-            releaseName: otel
+            releaseName: opentelemetry-operator
             valueFiles:
-              - $values/platform/values/spoke/otel.yaml
-            parameters:
-              - name: global.clusterName
-                value: '{{name}}'
+              - $values/platform/values/base/otel-operator.yaml
         - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
