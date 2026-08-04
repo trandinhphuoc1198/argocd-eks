@@ -1,4 +1,4 @@
-replicaCount: 4
+replicaCount: 8
 
 image:
   repository: gintaku98/k8s_fastapi
@@ -32,7 +32,7 @@ resources:
 
 keda:
   enabled: true
-  minReplicas: 4
+  minReplicas: 8
   maxReplicas: 20
 
   # How often KEDA queries Prometheus (seconds)
@@ -57,11 +57,11 @@ keda:
   triggers:
     # Scale out when per-pod RPS exceeds this value
     requestRate:
-      threshold: "10"
+      threshold: "5"
 
     # Scale out when P95 latency (seconds) exceeds this value
     p95Latency:
-      threshold: "0.5"
+      threshold: "0.3"
 
 database:
   createSecret: true
