@@ -32,7 +32,7 @@ resources:
 
 keda:
   enabled: true
-  minReplicas: 1
+  minReplicas: 4
   maxReplicas: 20
 
   # How often KEDA queries Prometheus (seconds)
@@ -45,16 +45,9 @@ keda:
 
   # ── Scale-out / scale-in behaviour ─────────────────────────────────────────
   scaleUp:
-  stabilizationWindowSeconds: 0
-  policies:
-    - type: Pods
-      value: 2
-      periodSeconds: 60
-    - type: Percent
-      value: 100
-      periodSeconds: 60
-  selectPolicy: Max
-  
+    stabilizationWindowSeconds: 30   # react within 1 m of sustained load
+    maxPodsPerStep: 3                 # add at most 2 pods per step
+    periodSeconds: 60
   scaleDown:
     stabilizationWindowSeconds: 30  # wait 5 m of low load before removing pods
     maxPodsPerStep: 2                 # remove 1 pod at a time
