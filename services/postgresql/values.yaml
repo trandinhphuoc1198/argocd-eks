@@ -27,15 +27,15 @@ cluster:
   resources:
     requests:
       cpu: 200m
-      memory: 128Mi
+      memory: 200Mi
     limits:
       cpu: 1000m
-      memory: 500Mi
+      memory: 300Mi
 
   postgresql:
     parameters:
       max_connections: "100"
-      shared_buffers: "128MB"
+      shared_buffers: "200MB"
       effective_cache_size: "512MB"
       maintenance_work_mem: "64MB"
       wal_level: "logical"
@@ -85,7 +85,7 @@ pooler:
     resources:
       requests:
         cpu: 50m
-        memory: 64Mi
+        memory: 128Mi
       limits:
         cpu: 200m
         memory: 128Mi
@@ -100,7 +100,7 @@ pooler:
     resources:
       requests:
         cpu: 50m
-        memory: 64Mi
+        memory: 128Mi
       limits:
         cpu: 200m
         memory: 128Mi
