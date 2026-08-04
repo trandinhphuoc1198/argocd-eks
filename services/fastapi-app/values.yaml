@@ -1,4 +1,4 @@
-replicaCount: 1
+replicaCount: 4
 
 image:
   repository: gintaku98/k8s_fastapi
@@ -45,9 +45,16 @@ keda:
 
   # ── Scale-out / scale-in behaviour ─────────────────────────────────────────
   scaleUp:
-    stabilizationWindowSeconds: 30   # react within 1 m of sustained load
-    maxPodsPerStep: 2                 # add at most 2 pods per step
-    periodSeconds: 60
+  stabilizationWindowSeconds: 0
+  policies:
+    - type: Pods
+      value: 2
+      periodSeconds: 60
+    - type: Percent
+      value: 100
+      periodSeconds: 60
+  selectPolicy: Max
+  
   scaleDown:
     stabilizationWindowSeconds: 30  # wait 5 m of low load before removing pods
     maxPodsPerStep: 2                 # remove 1 pod at a time
