@@ -25,10 +25,10 @@ httpRoute:
 resources:
   requests:
     cpu: 100m
-    memory: 200Mi
+    memory: 250Mi
   limits:
     cpu: 200m
-    memory: 300Mi
+    memory: 350Mi
 
 keda:
   enabled: true
