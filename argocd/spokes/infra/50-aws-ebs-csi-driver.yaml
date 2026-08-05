@@ -54,6 +54,11 @@ spec:
         - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
           targetRevision: main
           ref: values
+        - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
+          targetRevision: main
+          path: platform/webhook-guards
+          directory:
+            include: "wait-for-pod-identity-webhook.yaml"
       destination:
         server: '{{server}}'
         namespace: kube-system

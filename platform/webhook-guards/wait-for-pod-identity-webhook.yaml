@@ -1,38 +1,8 @@
 # platform/webhook-guards/wait-for-pod-identity-webhook.yaml
 #
 # PreSync hook for aws-ebs-csi-driver (hub: argocd/hub/50-aws-ebs-csi-driver.yaml,
-# spoke: argocd/spokes/infra/50-aws-ebs-csi-driver.yaml) and for
-# external-secrets (hub: argocd/hub/50-external-secrets.yaml,
-# spoke: argocd/spokes/infra/50-external-secrets.yaml).
+# spoke: argocd/spokes/infra/50-aws-ebs-csi-driver.yaml).
 #
-# WHY TWO CHECKS, NOT ONE:
-# `kubectl rollout status` (the initContainer below) only proves the
-# pod-identity-webhook Pod is Ready — i.e. its container started and its
-# readiness probe passed. It does NOT prove the webhook is actually able
-# to mutate anything yet, because:
-#   - cert-manager's `cainjector` patches `.webhooks[0].clientConfig.caBundle`
-#     onto the MutatingWebhookConfiguration ASYNCHRONOUSLY, on its own
-#     watch loop, AFTER the Certificate/Secret exist. There is a real
-#     window where the webhook Pod is Ready but caBundle is still empty —
-#     every admission call in that window fails TLS verification.
-#   - mutatingWebhook.failurePolicy is "Ignore" (see
-#     platform/values/base/pod-identity-webhook.yaml), so a failed call
-#     during that window does NOT block or error the caller's pod — it
-#     just gets admitted UNMUTATED, silently, with no AWS_ROLE_ARN /
-#     AWS_WEB_IDENTITY_TOKEN_FILE injected. This is exactly the "works
-#     after I delete-and-recreate the pod" symptom.
-#
-# So the main container below blocks until caBundle is actually non-empty
-# before letting aws-ebs-csi-driver / external-secrets sync their real
-# controller pods.
-#
-# VERIFY the MutatingWebhookConfiguration's name against the live cluster
-# (`kubectl get mutatingwebhookconfiguration`) before relying on the
-# hardcoded name below — same "confirm subchart-generated naming" caveat
-# this repo already flags elsewhere (README.md #7). This chart's release
-# name is "pod-identity-webhook"; the webhook object itself is commonly
-# named just "pod-identity-webhook" (cluster-scoped, not release-prefixed
-# the way the Deployment is) but that's chart-version-dependent.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -75,38 +45,6 @@ roleRef:
   kind: Role
   name: wait-for-pod-identity-webhook
 ---
-# MutatingWebhookConfiguration is cluster-scoped, so the caBundle check
-# needs a ClusterRole/ClusterRoleBinding — the namespaced Role above can't
-# grant access to it. Scoped to get/list/watch only, and further scoped
-# via resourceNames to just this one webhook object.
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: wait-for-pod-identity-webhook
-  annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
-rules:
-  - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["mutatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: wait-for-pod-identity-webhook
-  annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
-subjects:
-  - kind: ServiceAccount
-    name: wait-for-pod-identity-webhook
-    namespace: kube-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: wait-for-pod-identity-webhook
----
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -130,9 +68,8 @@ spec:
         runAsUser: 1000
         seccompProfile:
           type: RuntimeDefault
-      # ── Step 1: wait for the Deployment to be Ready ──────────────────────
-      initContainers:
-        - name: wait-rollout
+      containers:
+        - name: wait
           image: registry.k8s.io/kubectl:v1.30.0
           securityContext:
             allowPrivilegeEscalation: false
@@ -148,24 +85,4 @@ spec:
             - "rollout"
             - "status"
             - "deployment/pod-identity-webhook-amazon-eks-pod-identity-webhook"
-            - "--timeout=180s"
-      # ── Step 2: wait for cert-manager's cainjector to actually populate ──
-      # caBundle on the MutatingWebhookConfiguration. `kubectl wait --for=
-      # jsonpath=<path>` with no `=value` suffix waits for the path to
-      # resolve to a non-empty value — exactly "has cainjector patched
-      # this yet", not just "does the object exist".
-      containers:
-        - name: wait-cabundle
-          image: registry.k8s.io/kubectl:v1.30.0
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
-          command:
-            - "kubectl"
-          args:
-            - "wait"
-            - "mutatingwebhookconfiguration/pod-identity-webhook"
-            - "--for=jsonpath={.webhooks[0].clientConfig.caBundle}"
             - "--timeout=180s"
