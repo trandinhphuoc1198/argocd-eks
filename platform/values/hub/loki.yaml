@@ -15,9 +15,9 @@ loki:
   storage:
     type: s3
     bucketNames:
-      chunks: log-s3-phuoctd6          # ← change to your bucket name
-      ruler: log-s3-phuoctd6            # ← change to your bucket name
-      admin: log-s3-phuoctd6            # ← change to your bucket name (can be same)
+      chunks: loki-s3-phuoctd6 
+      ruler: loki-s3-phuoctd6   
+      admin: loki-s3-phuoctd6
     s3:
       endpoint: ""                 # leave empty for AWS S3
       region: ap-northeast-1       # ← change to your region
