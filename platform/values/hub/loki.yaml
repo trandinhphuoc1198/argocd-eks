@@ -9,7 +9,6 @@
 # Content is unchanged from the old spoke file below.
 
 loki:
-  
   commonConfig:
     replication_factor: 1
   storage:
@@ -39,6 +38,37 @@ loki:
     volume_enabled: true
   ruler:
     enable_api: true
+
+serviceAccount:
+  create: true
+  name: loki
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::633825695180:role/hub-dev-irsa-loki
+
+# ── IRSA opt-in for the scoped pod-identity-webhook fail-closed policy ────
+# (platform/values/base/pod-identity-webhook.yaml ->
+# mutatingWebhook.objectSelector.matchLabels). `defaults.podLabels` is the
+# right hook — VERIFIED against templates/_pod.tpl at the pinned tag
+# (loki-12.0.0, https://github.com/grafana-community/helm-charts):
+#   {{- with (mergeOverwrite (dict) .Values.loki.podLabels .Values.defaults.podLabels $component.podLabels) }}
+# i.e. defaults.podLabels is merged into every component pod (singleBinary,
+# ingester, querier, distributor, etc.) that goes through the shared pod
+# template — so this one key covers the deployment regardless of which
+# deploymentMode is active, without having to duplicate the label into
+# every per-component podLabels block individually.
+#
+# NOTE — this label alone does nothing yet: the ServiceAccount below has
+# no eks.amazonaws.com/role-arn annotation, so there's nothing for the
+# webhook to inject even once it matches this pod. Loki currently reads
+# S3 via the hub node's EC2 instance-profile role — this is the exact gap
+# flagged in README.md's "Known Gaps" #7 ("Tempo/Loki S3 access relies on
+# EC2 instance-profile IAM, unverified in production"). Add the IRSA role
+# ARN below once that role exists (mirrors ebs-csi.yaml's
+# serviceAccount.annotations pattern) — until then this just pre-wires
+# the label so enabling IRSA later is a one-line change, not two.
+defaults:
+  podLabels:
+    irsa.internal/inject: "true"
 
 minio:
   enabled: false

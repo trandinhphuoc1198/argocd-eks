@@ -9,6 +9,29 @@
 
 global:
   clusterDomain: cluster.local
+  # ── IRSA opt-in for the scoped pod-identity-webhook fail-closed policy
+  # (platform/values/base/pod-identity-webhook.yaml ->
+  # mutatingWebhook.objectSelector.matchLabels). global.podLabels is the
+  # correct hook — VERIFIED against templates/_helpers.tpl's
+  # "tempo.podLabels" define at the pinned tag (tempo-distributed-1.60.0,
+  # https://github.com/grafana-community/helm-charts):
+  #   {{- if .ctx.Values.global.podLabels }}
+  #   {{ toYaml .ctx.Values.global.podLabels | indent 0 }}
+  # every component (ingester, distributor, compactor, querier,
+  # queryFrontend, metricsGenerator) calls this same helper, so one key
+  # here covers all of them — no need to duplicate the label into each
+  # component's own podLabels block below.
+  #
+  # NOTE — this label alone does nothing yet: serviceAccount below has no
+  # eks.amazonaws.com/role-arn annotation, so there's nothing for the
+  # webhook to inject even once it matches these pods. Tempo currently
+  # reads/writes S3 via the hub node's EC2 instance-profile role — this
+  # is the same gap flagged in README.md's "Known Gaps" #7. Add the IRSA
+  # role ARN below once that role exists (mirrors ebs-csi.yaml's
+  # serviceAccount.annotations pattern); until then this just pre-wires
+  # the label so enabling IRSA later is a one-line change.
+  podLabels:
+    irsa.internal/inject: "true"
 
 storage:
   trace:
@@ -18,6 +41,12 @@ storage:
       region: ap-northeast-1               
       insecure: false                      # keep false — S3 always uses TLS
       endpoint: s3.ap-northeast-1.amazonaws.com
+
+serviceAccount:
+  create: true
+  name: tempo
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::633825695180:role/hub-dev-irsa-tempo
 
 traces:
   otlp:
