@@ -1,29 +1,30 @@
-# Wave 40 — MOVED FROM argocd/spokes/infra/40-tempo.yaml. Tempo now runs
-# only on hub. storageClass override kept inline since the values file
-# already sets storageClass: ebs-csi directly now that hub owns that
-# StorageClass (20-aws-ebs-csi-driver.yaml, wave "20").
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: tempo
+  name: loki
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "40"
+    argocd.argoproj.io/sync-wave: "50"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: platform-hub-observability
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: tempo-distributed
-      targetRevision: "1.60.0"
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: "12.0.0"
       helm:
-        releaseName: tempo
+        releaseName: loki
         valueFiles:
-          - $values/platform/values/hub/tempo.yaml
+          - $values/platform/values/hub/loki.yaml
     - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
       targetRevision: main
       ref: values
+    - repoURL: https://github.com/trandinhphuoc1198/argocd-eks.git
+      targetRevision: main
+      path: platform/webhook-guards
+      directory:
+        include: "wait-for-pod-identity-webhook.yaml"
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
