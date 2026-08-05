@@ -45,6 +45,7 @@ spec:
           cluster-mesh-ip: "10.1.11.10"
         annotations:
           irsa-ebs-csi-role-arn: "arn:aws:iam::633825695180:role/spoke-dev-irsa-ebs-csi-controller"
+          irsa-external-secrets-role-arn: "arn:aws:iam::633825695180:role/spoke-dev-irsa-external-secrets"
       data:
         name: "{{ .name }}"
         server: "{{ .server }}"
