@@ -224,10 +224,10 @@ operator:
 resources:
   requests:
     cpu: 100m
-    memory: 200Mi
+    memory: 300Mi
   limits:
     cpu: 500m
-    memory: 300Mi
+    memory: 400Mi
 
 # Must run on control-plane node too — Cilium bootstraps the CNI before
 # the control-plane taint is applied, on both hub and spoke.
