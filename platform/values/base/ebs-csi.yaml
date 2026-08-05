@@ -42,6 +42,17 @@ controller:
     create: true
     name: ebs-csi-controller-sa
 
+  # ── Opt this controller pod into the pod-identity-webhook's fail-closed
+  # scope (platform/values/base/pod-identity-webhook.yaml ->
+  # mutatingWebhook.objectSelector.matchLabels). Without this label the
+  # webhook's objectSelector never matches this pod at all, so the
+  # eks.amazonaws.com/role-arn annotation on serviceAccount above would
+  # silently never get mutated in — same failure mode this whole change
+  # exists to catch, just one layer up. Key confirmed as controller.podLabels
+  # against the pinned chart tag (aws-ebs-csi-driver-2.63.0).
+  podLabels:
+    irsa.internal/inject: "true"
+
 node:
   priorityClassName: system-node-critical
   tolerations:

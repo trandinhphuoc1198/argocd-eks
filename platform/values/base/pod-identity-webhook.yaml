@@ -13,20 +13,49 @@
 # Shared across hub + every spoke — config is identical everywhere
 # (region, annotation prefix), same base+tier convention as ebs-csi.yaml.
 #
-# VERIFY before first sync: `helm show values jkroepke/amazon-eks-pod-identity-webhook
-#   --version <pinned version>` — the certManager.* and webhook.* keys
-# below are this chart's documented pattern for cert-manager-issued TLS
-# and webhook failure policy, but confirm exact field names against the
-# pinned chart version before relying on them; this chart's values schema
-# has shifted across major versions (0.x -> 1.x -> 2.x).
 config:
   annotationPrefix: "eks.amazonaws.com"
   defaultAwsRegion: "ap-northeast-1"
 
+# ─────────────────────────────────────────────────────────────────────────
+# mutatingWebhook — scoped fail-closed for IRSA-dependent controllers
+# ─────────────────────────────────────────────────────────────────────────
+# WHY: with the chart's DEFAULT failurePolicy: Ignore, if the webhook isn't
+# actually reachable yet when a pod is admitted (cert-manager's cainjector
+# hasn't populated caBundle, or Cilium hasn't finished programming the
+# Service into its eBPF maps — both trail "Pod Ready" by some margin),
+# admission is silently ALLOWED THROUGH UNMUTATED. The pod comes up
+# missing AWS_ROLE_ARN/AWS_WEB_IDENTITY_TOKEN_FILE with no error anywhere
+# — this is exactly the "works after I manually delete+recreate the pod"
+# symptom. failurePolicy: Fail turns that into a denied Create, which the
+# owning Deployment/ReplicaSet controller retries automatically — so it
+# self-heals once the webhook actually comes up, instead of silently
+# shipping a broken pod.
+#
+# Flipping failurePolicy: Fail chart-wide would be worse: the chart's
+# built-in objectSelector (see templates/mutatingwebhook.yaml — skips pods
+# labeled eks.amazonaws.com/skip-pod-identity-webhook, and skips its own
+# pod) still matches EVERY OTHER pod in the cluster by default. A Fail
+# webhook that's unreachable during a from-scratch bootstrap would then
+# block ALL pod creation cluster-wide, not just the IRSA-dependent ones.
+#
+# Instead: keep failurePolicy: Fail, but narrow objectSelector via
+# matchLabels (ANDed together with the chart's built-in matchExpressions
+# in the SAME LabelSelector — confirmed in templates/mutatingwebhook.yaml)
+# so the webhook only even considers pods explicitly opted in. Every
+# consumer chart must set this same label on its controller pod template
+# — see platform/values/base/ebs-csi.yaml (controller.podLabels) and
+# platform/values/hub/external-secrets.yaml / the spoke ApplicationSet's
+# helm.parameters (podLabels) for the other half of this.
+mutatingWebhook:
+  failurePolicy: Fail
+  objectSelector:
+    matchLabels:
+      irsa.internal/inject: "true"
+
 # Webhook failure policy — was likely `webhook.failurePolicy` before;
 # chart 2.6.5 nests this under mutatingWebhook, not a top-level `webhook` key.
-mutatingWebhook:
-  failurePolicy: Ignore
+# (kept for historical context — superseded by the mutatingWebhook block above)
 
 # cert-manager-issued TLS for the webhook's serving cert — was likely a
 # top-level `certManager:` block before; chart 2.6.5 nests it under pki.certManager.
