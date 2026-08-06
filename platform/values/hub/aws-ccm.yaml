@@ -1,11 +1,28 @@
 # platform/values/hub/aws-ccm.yaml
 #
-# Hub-tier overlay, layered on top of platform/values/base/aws-ccm.yaml by
-# argocd/hub/00-aws-ccm.yaml. Empty today — the hub runs CCM identically to
-# spoke. Add keys here if that ever changes; do not edit base/aws-ccm.yaml
-# to special-case the hub.
-#
-# Terraform installed CCM on the hub originally — verify `helm get values
-# aws-cloud-controller-manager -n kube-system` matches base + this file
-# before enabling automated sync.
-{}
+# ── IRSA — injected directly (no pod-identity-webhook dependency).
+# VERIFY top-level `extraVolumes` / `extraVolumeMounts` / `env` against
+# `helm show values aws-cloud-controller-manager --version 0.0.11` — this
+# chart is small/unofficial-adjacent, key names aren't as standardized as
+# cilium's.
+extraVolumes:
+  - name: aws-iam-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            audience: sts.amazonaws.com
+            expirationSeconds: 3600
+            path: token
+
+extraVolumeMounts:
+  - name: aws-iam-token
+    mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+    readOnly: true
+
+env:
+  - name: AWS_ROLE_ARN
+    value: "arn:aws:iam::633825695180:role/hub-dev-irsa-aws-ccm"
+  - name: AWS_WEB_IDENTITY_TOKEN_FILE
+    value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+  - name: AWS_REGION
+    value: "ap-northeast-1"

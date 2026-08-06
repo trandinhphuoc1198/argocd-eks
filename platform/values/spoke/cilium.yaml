@@ -12,3 +12,26 @@
 # takes over as source of truth.
 k8sServiceHost: "10.1.11.10"
 k8sServicePort: "6443"
+
+# ── IRSA for cilium-operator — same rationale as hub's file. Per-spoke role
+# ARN, not shared with hub — VERIFY key paths as noted there.
+operator:
+  extraVolumes:
+    - name: aws-iam-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: sts.amazonaws.com
+              expirationSeconds: 3600
+              path: token
+  extraVolumeMounts:
+    - name: aws-iam-token
+      mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+      readOnly: true
+  extraEnv:
+    - name: AWS_ROLE_ARN
+      value: "arn:aws:iam::633825695180:role/spoke-dev-irsa-cilium-operator"
+    - name: AWS_WEB_IDENTITY_TOKEN_FILE
+      value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+    - name: AWS_REGION
+      value: "ap-northeast-1"

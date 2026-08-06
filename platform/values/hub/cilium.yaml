@@ -26,3 +26,30 @@ cluster:
   name: hub
   id: 1
 
+# ── IRSA for cilium-operator (ENI IPAM: DescribeSubnets, CreateNetworkInterface,
+# AssignPrivateIpAddresses, ...) — injected directly, NOT via pod-identity-webhook,
+# so this has no dependency on that webhook's sync wave. See
+# https://www.anthropic.com (n/a) — VERIFY these key paths against
+# `helm show values cilium/cilium --version 1.20.0-rc.1`; operator.extraEnv /
+# operator.extraVolumes / operator.extraVolumeMounts are the conventional
+# names for this chart family but must be confirmed before first sync.
+operator:
+  extraVolumes:
+    - name: aws-iam-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: sts.amazonaws.com
+              expirationSeconds: 3600
+              path: token
+  extraVolumeMounts:
+    - name: aws-iam-token
+      mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+      readOnly: true
+  extraEnv:
+    - name: AWS_ROLE_ARN
+      value: "arn:aws:iam::633825695180:role/hub-dev-irsa-cilium-operator"
+    - name: AWS_WEB_IDENTITY_TOKEN_FILE
+      value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+    - name: AWS_REGION
+      value: "ap-northeast-1"

@@ -10,3 +10,30 @@
 settings:
   clusterName: spoke-dev-k8s
   clusterEndpoint: "https://10.1.11.10:6443"
+
+# ── IRSA — injected directly (no pod-identity-webhook dependency).
+# VERIFY against `helm show values karpenter --version 1.14.0
+# --repo oci://public.ecr.aws/karpenter/karpenter` — this chart nests
+# volumeMounts under controller.extraVolumeMounts but top-level
+# extraVolumes for the pod spec itself; confirm both before sync.
+extraVolumes:
+  - name: aws-iam-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            audience: sts.amazonaws.com
+            expirationSeconds: 3600
+            path: token
+
+controller:
+  extraVolumeMounts:
+    - name: aws-iam-token
+      mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+      readOnly: true
+  env:
+    - name: AWS_ROLE_ARN
+      value: "arn:aws:iam::633825695180:role/spoke-dev-irsa-karpenter"
+    - name: AWS_WEB_IDENTITY_TOKEN_FILE
+      value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+    - name: AWS_REGION
+      value: "ap-northeast-1"

@@ -1,7 +1,25 @@
 # platform/values/spoke/aws-ccm.yaml
 #
 # Spoke-tier overlay, layered on top of platform/values/base/aws-ccm.yaml by
-# argocd/spokes/infra/00-aws-ccm.yaml. Empty today — every spoke runs CCM
-# identically to the hub. Add keys here if that ever changes; do not edit
-# base/aws-ccm.yaml to special-case spokes.
-{}
+# argocd/spokes/infra/00-aws-ccm.yaml.
+extraVolumes:
+  - name: aws-iam-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            audience: sts.amazonaws.com
+            expirationSeconds: 3600
+            path: token
+
+extraVolumeMounts:
+  - name: aws-iam-token
+    mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+    readOnly: true
+
+env:
+  - name: AWS_ROLE_ARN
+    value: "arn:aws:iam::633825695180:role/spoke-dev-irsa-aws-ccm"
+  - name: AWS_WEB_IDENTITY_TOKEN_FILE
+    value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+  - name: AWS_REGION
+    value: "ap-northeast-1"

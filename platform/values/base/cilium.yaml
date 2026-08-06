@@ -243,3 +243,11 @@ encryption:
   type: wireguard
 
 MTU: 8500
+
+serviceAccounts:
+  cilium:
+    create: true
+    name: cilium
+  operator:
+    create: true
+    name: cilium-operator

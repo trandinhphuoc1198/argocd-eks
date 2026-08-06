@@ -15,6 +15,7 @@
 
 serviceAccount:
   create: true
+  name: karpenter
   # No annotations — no IRSA. Pod picks up credentials from the node's
   # instance profile via the default AWS SDK chain.
   annotations: {}
