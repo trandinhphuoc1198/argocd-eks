@@ -15,4 +15,4 @@
 controller:
   serviceAccount:
     annotations:
-      eks.amazonaws.com/role-arn: "arn:aws:iam::633825695180:role/hub-dev-irsa-ebs-csi-controller"
+      eks.amazonaws.com/role-arn: "arn:aws:iam::164892691239:role/hub-dev-irsa-ebs-csi-controller"

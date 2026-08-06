@@ -43,7 +43,7 @@ serviceAccount:
   create: true
   name: loki
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::633825695180:role/hub-dev-irsa-loki
+    eks.amazonaws.com/role-arn: arn:aws:iam::164892691239:role/hub-dev-irsa-loki
 
 # ── IRSA opt-in for the scoped pod-identity-webhook fail-closed policy ────
 # (platform/values/base/pod-identity-webhook.yaml ->

@@ -30,7 +30,7 @@ operator:
       readOnly: true
   extraEnv:
     - name: AWS_ROLE_ARN
-      value: "arn:aws:iam::633825695180:role/spoke-dev-irsa-cilium-operator"
+      value: "arn:aws:iam::164892691239:role/spoke-dev-irsa-cilium-operator"
     - name: AWS_WEB_IDENTITY_TOKEN_FILE
       value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
     - name: AWS_REGION

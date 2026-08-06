@@ -46,7 +46,7 @@ serviceAccount:
   create: true
   name: tempo
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::633825695180:role/hub-dev-irsa-tempo
+    eks.amazonaws.com/role-arn: arn:aws:iam::164892691239:role/hub-dev-irsa-tempo
 
 traces:
   otlp:
